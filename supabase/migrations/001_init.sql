@@ -55,7 +55,7 @@ create table if not exists accounts (
   score_rationale   text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
-  unique (user_id, lower(company_name))
+  unique (user_id, company_name)
 );
 create index if not exists idx_accounts_user on accounts(user_id);
 create index if not exists idx_accounts_score on accounts(user_id, score desc);
