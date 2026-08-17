@@ -1,0 +1,36 @@
+name: Deploy Frontend to Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install & build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test
+
+      - uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: opensignal
+          directory: frontend/build
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
