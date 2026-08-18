@@ -6,6 +6,11 @@ on:
     paths:
       - "frontend/**"
 
+permissions:
+  contents: read
+  statuses: write
+  deployments: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
