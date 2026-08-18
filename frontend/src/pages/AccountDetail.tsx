@@ -21,23 +21,31 @@ export default function AccountDetail() {
       try {
         const [accountData, signalsData] = await Promise.all([
           api.get<Account>(`/api/v1/accounts/${id}`),
-          api.get<Signal[]>(`/api/v1/signals?account_id=${id}`),
+          api.get<Signal[]>(`/api/v1/accounts/${id}/signals`),
         ]);
         setAccount(accountData);
         setSignals(signalsData);
+      } catch (err) {
+        toast((err as Error).message, "error");
       } finally {
         setLoading(false);
       }
     }
     void load();
-  }, [id]);
+  }, [id, toast]);
 
   async function rescore() {
+    if (!id) return;
     setScoring(true);
     try {
-      const result = await api.post<Account>(`/api/v1/accounts/${id}/score`);
-      setAccount(result);
-      toast("Account rescored", "success");
+      await api.post<{ score: number }>(`/api/v1/accounts/${id}/score`);
+      const [accountData, signalsData] = await Promise.all([
+        api.get<Account>(`/api/v1/accounts/${id}`),
+        api.get<Signal[]>(`/api/v1/accounts/${id}/signals`),
+      ]);
+      setAccount(accountData);
+      setSignals(signalsData);
+      toast(`Account rescored — score ${accountData.score ?? "—"}`, "success");
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {

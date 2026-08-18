@@ -80,7 +80,7 @@ async def test_service(db: AsyncSession, user_id, service: str) -> dict:
         return {"ok": True, "message": "GA4 connected", "quota": {"note": "Free tier"}}
 
     if service == "deepseek":
-        client = DeepSeekClient()
+        client = DeepSeekClient(require_key(creds, "deepseek"))
         await client._chat(
             "Respond with exactly: OK",
             [{"role": "user", "content": "Ping"}],

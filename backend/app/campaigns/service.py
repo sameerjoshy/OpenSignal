@@ -5,7 +5,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.campaigns.importer import parse_csv
+from app.campaigns.importer import extract_emails, parse_csv, parse_email_file
 from app.database import crud
 from app.database.models import Campaign, CampaignAccount, User
 from app.email.service import generate_message_for_account
@@ -56,6 +56,43 @@ async def import_csv(db: AsyncSession, user: User, campaign: Campaign, content: 
     return imported
 
 
+async def import_email_addresses(db: AsyncSession, user: User, campaign: Campaign, emails: list[str]) -> int:
+    """Import a list of email addresses, creating accounts by domain and pinning the recipient."""
+    imported = 0
+    for email in emails[:500]:
+        email = (email or "").strip().lower()
+        if "@" not in email:
+            continue
+        domain = email.rsplit("@", 1)[1].strip(".")
+        if not domain:
+            continue
+        account = await crud.find_or_create_account(db, user.id, domain, domain=domain)
+        target = (
+            await db.execute(
+                select(CampaignAccount).where(
+                    CampaignAccount.campaign_id == campaign.id,
+                    CampaignAccount.account_id == account.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if target:
+            if target.contact_email != email:
+                target.contact_email = email
+                await db.commit()
+        else:
+            db.add(
+                CampaignAccount(
+                    campaign_id=campaign.id,
+                    account_id=account.id,
+                    contact_email=email,
+                    status="ready",
+                )
+            )
+            imported += 1
+    await db.commit()
+    return imported
+
+
 async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict:
     """Detect signals, score accounts, route by tier, and generate first email for each target."""
     from app.signals import detector, scorer
@@ -97,6 +134,7 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
                     account=account,
                     product_context=product_context,
                     sequence_step=1,
+                    contact_email=target.contact_email,
                 )
                 if message:
                     result["generated"] += 1
@@ -110,7 +148,19 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
 
     campaign.status = "active"
     await db.commit()
+    result["message"] = (
+        f"Processed {result['processed']} target(s): {result['signals']} signals, "
+        f"{result['scored']} scored, {result['generated']} emails generated, {result['errors']} errors"
+    )
     return result
+
+
+def extract_email_list(text: str) -> list[str]:
+    return extract_emails(text)
+
+
+def extract_email_list_from_file(content: bytes, filename: str) -> list[str]:
+    return parse_email_file(content, filename)
 
 
 def validate_status_change(current: str, new: str) -> None:

@@ -40,14 +40,12 @@ async def mailgun_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         if user_id:
             creds = await resolve_credentials(db, user_id, "mailgun")
             if creds.api_key:
-                try:
-                    client = MailgunClient(creds.api_key, (creds.config or {}).get("domain", "verify"))
-                    if not client.verify_webhook(**signature):
-                        raise HTTPException(status_code=403, detail="Invalid signature")
-                except HTTPException:
-                    raise
-                except Exception:  # noqa: BLE001
-                    pass  # verification not possible; process anyway (documented MVP behavior)
+                client = MailgunClient(creds.api_key, (creds.config or {}).get("domain", "verify"))
+                if not client.verify_webhook(**signature):
+                    raise HTTPException(status_code=403, detail="Invalid signature")
+            else:
+                logger.warning("No Mailgun key resolvable for signature verification; rejecting webhook")
+                raise HTTPException(status_code=403, detail="No Mailgun key configured")
 
     event_type = event_data.get("event", "")
     message = await get_message_by_provider_id(db, message_id)

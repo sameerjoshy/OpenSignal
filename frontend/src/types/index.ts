@@ -83,6 +83,7 @@ export interface CampaignAccount {
   id: string;
   campaign_id: string;
   account_id: string;
+  contact_email?: string | null;
   status: string;
   tier?: number | null;
   score?: number | null;

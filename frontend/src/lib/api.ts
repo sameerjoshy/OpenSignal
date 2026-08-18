@@ -38,8 +38,9 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
+  const isForm = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(!isForm ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string>),
   };
   if (token) {
@@ -49,9 +50,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (response.status === 401) {
-    clearSession();
-    window.location.href = "/login";
-    throw new ApiError(401, "Session expired");
+    if (token) {
+      clearSession();
+      window.location.href = "/login";
+    }
+    throw new ApiError(401, token ? "Session expired" : "Invalid email or password");
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -74,7 +77,6 @@ export const api = {
     request<T>(path, {
       method: "POST",
       body: formData,
-      headers: { "Content-Type": undefined as unknown as string },
     }),
 };
 

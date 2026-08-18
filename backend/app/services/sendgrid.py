@@ -19,9 +19,15 @@ class SendGridClient:
         subject: str,
         text: str | None = None,
         html: str | None = None,
+        custom_args: dict | None = None,
     ) -> str:
         payload = {
-            "personalizations": [{"to": [{"email": to}]}],
+            "personalizations": [
+                {
+                    "to": [{"email": to}],
+                    "custom_args": custom_args or {},
+                }
+            ],
             "from": {"email": from_email},
             "subject": subject,
         }

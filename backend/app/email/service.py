@@ -44,9 +44,10 @@ async def generate_message_for_account(
     account: Account,
     product_context: str,
     sequence_step: int = 1,
+    contact_email: str | None = None,
 ) -> EmailMessage | None:
     """Generate (via DeepSeek) and persist a draft email for a campaign account."""
-    to_email = await resolve_contact_email(db, user, account)
+    to_email = contact_email or await resolve_contact_email(db, user, account)
     if not to_email:
         logger.warning("No contact email resolvable for %s; skipping generation", account.company_name)
         return None
@@ -100,6 +101,7 @@ async def send_message(db: AsyncSession, user: User, message: EmailMessage, prov
             to=message.to_email,
             subject=message.subject,
             text=message.body_text,
+            custom_args={"opensignal_message_id": str(message.id)},
         )
     else:
         raise ServiceError(f"Unsupported email provider: {provider}")
@@ -155,16 +157,23 @@ async def apply_event(db: AsyncSession, message: EmailMessage, event_type: str, 
     mapping = {
         "delivered": "delivered",
         "accepted": "queued",
+        "processed": "queued",
+        "deferred": "queued",
         "sent": "sent",
         "opened": "opened",
+        "open": "opened",
         "click": "clicked",
         "clicked": "clicked",
         "replied": "replied",
         "bounced": "bounced",
         "bounce": "bounced",
         "failed": "failed",
+        "dropped": "failed",
         "unsubscribed": "unsubscribed",
+        "unsubscribe": "unsubscribed",
+        "group_unsubscribe": "unsubscribed",
         "complained": "complained",
+        "spamreport": "complained",
     }
     new_status = mapping.get(event_type)
     if new_status and new_status in MESSAGE_STATUSES:

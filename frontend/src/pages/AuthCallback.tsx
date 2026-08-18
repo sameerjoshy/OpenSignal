@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthCallback() {
-  const { signIn } = useAuth();
+  const { exchange } = useAuth();
   const navigate = useNavigate();
   const handled = useRef(false);
 
@@ -11,7 +11,7 @@ export default function AuthCallback() {
     if (handled.current) return;
     handled.current = true;
 
-    const { access_token, refresh_token, type } = parseHash(window.location.hash);
+    const { access_token, type } = parseHash(window.location.hash);
 
     async function handle() {
       try {
@@ -21,8 +21,8 @@ export default function AuthCallback() {
           return;
         }
         if (access_token) {
-          // For email confirmation, the provider flow completes here.
-          await signIn(access_token, refresh_token || "");
+          // Exchange the Supabase access token for an app JWT.
+          await exchange(access_token);
           navigate("/onboarding", { replace: true });
           return;
         }
@@ -34,7 +34,7 @@ export default function AuthCallback() {
 
     void handle();
     window.location.hash = "";
-  }, [signIn, navigate]);
+  }, [exchange, navigate]);
 
   return (
     <div className="page-loading">
@@ -44,11 +44,10 @@ export default function AuthCallback() {
   );
 }
 
-function parseHash(hash: string): { access_token?: string; refresh_token?: string; type?: string } {
+function parseHash(hash: string): { access_token?: string; type?: string } {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
   return {
     access_token: params.get("access_token") || undefined,
-    refresh_token: params.get("refresh_token") || undefined,
     type: params.get("type") || undefined,
   };
 }

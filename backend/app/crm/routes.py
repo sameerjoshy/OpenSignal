@@ -27,7 +27,11 @@ async def sync_to_crm(
         raise HTTPException(status_code=404, detail="Campaign not found")
     try:
         outcome = await crm_service.sync_campaign(db, user, campaign, payload.service)
-        return {"service": payload.service, **outcome}
+        message = (
+            f"CRM sync complete: {outcome.get('created', 0)} created, "
+            f"{outcome.get('already_synced', 0)} already synced, {outcome.get('errors', 0)} errors"
+        )
+        return {"service": payload.service, "message": message, **outcome}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -199,6 +199,18 @@ class CampaignImportIn(BaseModel):
         return cleaned[:500]
 
 
+class CampaignEmailsIn(BaseModel):
+    emails: list[str] = Field(min_length=1)
+
+    @field_validator("emails")
+    @classmethod
+    def validate_emails(cls, v: list[str]) -> list[str]:
+        cleaned = [e.strip() for e in v if e and "@" in e]
+        if not cleaned:
+            raise ValueError("No valid email addresses provided")
+        return cleaned[:500]
+
+
 class CampaignRunOut(BaseModel):
     campaign_id: uuid.UUID
     queued: int
@@ -209,6 +221,7 @@ class CampaignAccountOut(ORMModel):
     id: uuid.UUID
     campaign_id: uuid.UUID
     account_id: uuid.UUID
+    contact_email: str | None = None
     status: str
     tier: int | None = None
     score: float | None = None
@@ -259,7 +272,7 @@ class EmailEventOut(ORMModel):
     email_message_id: uuid.UUID
     event_type: str
     occurred_at: datetime
-    metadata: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = Field(default=None, validation_alias="meta", serialization_alias="metadata")
 
 
 # ---------------------------------------------------------------- CRM

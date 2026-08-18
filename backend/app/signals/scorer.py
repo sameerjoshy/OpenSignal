@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud
 from app.database.models import Account, User
+from app.services.credentials import require_key, resolve_credentials
 from app.services.deepseek import DeepSeekClient
 
 logger = logging.getLogger("opensignal.signals")
@@ -28,7 +29,8 @@ async def score_account(db: AsyncSession, user: User, account: Account) -> dict:
         "employee_count": account.employee_count,
     }
 
-    deepseek = DeepSeekClient()  # raises ServiceNotConfigured when the DeepSeek key is absent
+    creds = await resolve_credentials(db, user.id, "deepseek")
+    deepseek = DeepSeekClient(require_key(creds, "deepseek"))  # raises ServiceNotConfigured when the DeepSeek key is absent
     result = await deepseek.score_account(account_dict, signal_dicts)
 
     account.score = result["score"]

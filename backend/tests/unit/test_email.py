@@ -53,7 +53,7 @@ async def test_get_message_by_provider_id(db):
     assert found.id == message.id
 
 
-async def test_mailgun_webhook_creates_event(client, db):
+async def test_mailgun_webhook_rejects_without_verifiable_key(client, db):
     message = EmailMessage(
         user_id=uuid.uuid4(),
         subject="Webhook",
@@ -75,12 +75,111 @@ async def test_mailgun_webhook_creates_event(client, db):
         ),
     }
     resp = await client.post("/api/v1/webhooks/mailgun", data=payload)
+    assert resp.status_code == 403
+
+    db.expire_all()
+    result = await db.execute(
+        select(EmailMessage).where(EmailMessage.message_id == "wh123@mailgun.example.com")
+    )
+    updated = result.scalar_one()
+    assert updated.status == "sent"  # event was not applied
+
+
+async def test_mailgun_webhook_rejects_bad_signature(client, db):
+    import hashlib
+    import hmac
+
+    from app.database.models import ServiceCredential
+    from app.security.encryption import encrypt_value
+
+    user_id = uuid.uuid4()
+    db.add(
+        ServiceCredential(
+            user_id=user_id,
+            service="mailgun",
+            encrypted_key=encrypt_value("secret-key"),
+            config={"domain": "mg.example.com"},
+            is_active=True,
+        )
+    )
+    db.add(
+        EmailMessage(
+            user_id=user_id,
+            subject="Webhook",
+            body_text="Body",
+            to_email="d@example.com",
+            status="sent",
+            message_id="whbad@mailgun.example.com",
+        )
+    )
+    await db.commit()
+
+    timestamp = "1700000000"
+    token = "tok"
+    bad_sig = "0" * 64
+    payload = {
+        "signature[timestamp]": timestamp,
+        "signature[token]": token,
+        "signature[signature]": bad_sig,
+        "event-data": (
+            '{"event": "opened", "recipient": "d@example.com", '
+            '"message": {"headers": {"message-id": "whbad@mailgun.example.com"}}}'
+        ),
+    }
+    resp = await client.post("/api/v1/webhooks/mailgun", data=payload)
+    assert resp.status_code == 403
+
+
+async def test_mailgun_webhook_accepts_valid_signature(client, db):
+    import hashlib
+    import hmac
+
+    from app.database.models import ServiceCredential
+    from app.security.encryption import encrypt_value
+
+    user_id = uuid.uuid4()
+    db.add(
+        ServiceCredential(
+            user_id=user_id,
+            service="mailgun",
+            encrypted_key=encrypt_value("secret-key"),
+            config={"domain": "mg.example.com"},
+            is_active=True,
+        )
+    )
+    db.add(
+        EmailMessage(
+            user_id=user_id,
+            subject="Webhook",
+            body_text="Body",
+            to_email="e@example.com",
+            status="sent",
+            message_id="whok@mailgun.example.com",
+        )
+    )
+    await db.commit()
+
+    timestamp = "1700000000"
+    token = "tok"
+    good_sig = hmac.new(
+        b"secret-key", f"{timestamp}{token}".encode(), hashlib.sha256
+    ).hexdigest()
+    payload = {
+        "signature[timestamp]": timestamp,
+        "signature[token]": token,
+        "signature[signature]": good_sig,
+        "event-data": (
+            '{"event": "opened", "recipient": "e@example.com", '
+            '"message": {"headers": {"message-id": "whok@mailgun.example.com"}}}'
+        ),
+    }
+    resp = await client.post("/api/v1/webhooks/mailgun", data=payload)
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
-    db.expire_all()  # the webhook updated via a different session
+    db.expire_all()
     result = await db.execute(
-        select(EmailMessage).where(EmailMessage.message_id == "wh123@mailgun.example.com")
+        select(EmailMessage).where(EmailMessage.message_id == "whok@mailgun.example.com")
     )
     updated = result.scalar_one()
     assert updated.status == "opened"

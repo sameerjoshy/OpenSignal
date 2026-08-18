@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud
 from app.database.models import Account, Campaign, User
+from app.services.credentials import require_key, resolve_credentials
 from app.services.deepseek import DeepSeekClient
 
 logger = logging.getLogger("opensignal.email")
@@ -35,7 +36,8 @@ async def build_personalized_email(
         "industry": account.industry,
         "employee_count": account.employee_count,
     }
-    deepseek = DeepSeekClient()
+    creds = await resolve_credentials(db, user.id, "deepseek")
+    deepseek = DeepSeekClient(require_key(creds, "deepseek"))
     return await deepseek.generate_email(
         account=account_dict,
         campaign={"name": campaign.name},

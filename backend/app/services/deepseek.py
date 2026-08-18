@@ -40,10 +40,11 @@ def _heuristic_score(signals: list[dict]) -> float:
 class DeepSeekClient:
     """Minimal DeepSeek chat-completions client (OpenAI-compatible API)."""
 
-    def __init__(self) -> None:
-        if not settings.deepseek_api_key:
+    def __init__(self, api_key: str | None = None) -> None:
+        key = api_key or settings.deepseek_api_key
+        if not key:
             raise ServiceNotConfigured("deepseek")
-        self.api_key = settings.deepseek_api_key
+        self.api_key = key
         self.base_url = (settings.deepseek_base_url or DEFAULT_BASE_URL).rstrip("/")
         self.model_id = settings.deepseek_model_id
 

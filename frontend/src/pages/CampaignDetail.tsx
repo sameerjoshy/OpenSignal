@@ -15,8 +15,9 @@ export default function CampaignDetail() {
   const [targets, setTargets] = useState<CampaignAccount[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"run" | "send" | "crm" | null>(null);
+  const [busy, setBusy] = useState<"run" | "send" | "crm" | "emails" | null>(null);
   const [csvBusy, setCsvBusy] = useState(false);
+  const [emailsText, setEmailsText] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -46,7 +47,7 @@ export default function CampaignDetail() {
     setBusy("run");
     try {
       const result = await api.post<{ message: string }>(`/api/v1/campaigns/${id}/run`);
-      toast(result.message, "success");
+      toast(result.message || "Campaign run complete", "success");
       await load();
     } catch (err) {
       toast((err as Error).message, "error");
@@ -60,7 +61,7 @@ export default function CampaignDetail() {
     setBusy("send");
     try {
       const result = await api.post<{ message: string }>(`/api/v1/campaigns/${id}/send`);
-      toast(result.message, "success");
+      toast(result.message || "Emails sent", "success");
       await load();
     } catch (err) {
       toast((err as Error).message, "error");
@@ -74,7 +75,7 @@ export default function CampaignDetail() {
     setBusy("crm");
     try {
       const result = await api.post<{ message: string }>("/api/v1/crm/sync", { campaign_id: id, service });
-      toast(result.message, "success");
+      toast(result.message || `Synced to ${service}`, "success");
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -90,6 +91,45 @@ export default function CampaignDetail() {
       toast(`Campaign ${status}`, "success");
     } catch (err) {
       toast((err as Error).message, "error");
+    }
+  }
+
+  async function importEmails() {
+    if (!id) return;
+    const emails = emailsText
+      .split(/[\s,;]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.includes("@"));
+    if (emails.length === 0) {
+      toast("Paste at least one email address", "error");
+      return;
+    }
+    setBusy("emails");
+    try {
+      const result = await api.post<{ message: string }>(`/api/v1/campaigns/${id}/import-emails`, { emails });
+      toast(result.message || `Imported ${emails.length} email(s)`, "success");
+      setEmailsText("");
+      await load();
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleEmailFile(file: File | null) {
+    if (!id || !file) return;
+    setBusy("emails");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await api.postForm<{ message: string }>(`/api/v1/campaigns/${id}/import-emails-file`, formData);
+      toast(result.message || "Emails imported", "success");
+      await load();
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -194,6 +234,38 @@ export default function CampaignDetail() {
           />
         </label>
         <span className="muted">Updated {formatDateTime(campaign.updated_at)}</span>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Import email list</h2>
+        </div>
+        <div className="card-body">
+          <div className="stack">
+            <textarea
+              className="input"
+              rows={4}
+              placeholder={"Paste email addresses, one per line or comma-separated, e.g.\n  john@acme.com, jane@globex.io"}
+              value={emailsText}
+              onChange={(event) => setEmailsText(event.target.value)}
+            />
+            <div className="action-bar">
+              <button className="btn btn-secondary" onClick={() => void importEmails()} disabled={busy !== null}>
+                {busy === "emails" ? "Importing…" : "Import emails"}
+              </button>
+              <label className="btn btn-ghost" title="Upload .txt, .csv, .xls or .xlsx with email addresses">
+                Or upload file ({busy === "emails" ? "…" : ".txt/.csv/.xls/.xlsx"})
+                <input
+                  type="file"
+                  accept=".txt,.csv,.xls,.xlsx,text/csv"
+                  className="file-input"
+                  onChange={(event) => void handleEmailFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              <span className="muted">Emails create accounts by domain and pin the recipient for sending.</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="card">

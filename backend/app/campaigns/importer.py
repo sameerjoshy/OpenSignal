@@ -2,6 +2,61 @@
 
 import csv
 import io
+import re
+
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
+
+
+def extract_emails(text: str) -> list[str]:
+    """Pull out and normalize email addresses from arbitrary text."""
+    seen: dict[str, None] = {}
+    for match in EMAIL_RE.finditer(text or ""):
+        email = match.group(0).strip().lower()
+        if email not in seen:
+            seen[email] = None
+    return list(seen)
+
+
+def parse_email_file(data: bytes, filename: str = "") -> list[str]:
+    """Parse a text/csv/xls/xlsx file into a list of unique emails."""
+    name = (filename or "").lower()
+    if name.endswith(".xlsx") or name.endswith(".xls"):
+        return _extract_from_spreadsheet(data, filename)
+    text = data.decode("utf-8-sig", errors="replace")
+    return extract_emails(text)
+
+
+def _extract_from_spreadsheet(data: bytes, filename: str) -> list[str]:
+    if filename.lower().endswith(".xlsx"):
+        from openpyxl import load_workbook
+
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    else:
+        import xlrd
+
+        wb = xlrd.open_workbook(file_contents=data)
+
+    emails: list[str] = []
+    if filename.lower().endswith(".xlsx"):
+        for sheet in wb.worksheets:
+            for row in sheet.iter_rows(values_only=True):
+                for cell in row:
+                    if isinstance(cell, str) and "@" in cell:
+                        emails.extend(extract_emails(cell))
+    else:
+        for sheet in wb.sheets():
+            for r in range(sheet.nrows):
+                for c in range(sheet.ncols):
+                    cell = sheet.cell_value(r, c)
+                    if isinstance(cell, str) and "@" in cell:
+                        emails.extend(extract_emails(cell))
+    seen: dict[str, None] = {}
+    result: list[str] = []
+    for email in emails:
+        if email not in seen:
+            seen[email] = None
+            result.append(email)
+    return result
 
 COMPANY_COLUMNS = {
     "company",

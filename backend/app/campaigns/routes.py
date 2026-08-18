@@ -106,6 +106,33 @@ async def import_campaign_csv(
     return schemas.CampaignRunOut(campaign_id=campaign_id, queued=imported, message=f"Imported {imported} companies")
 
 
+@router.post("/campaigns/{campaign_id}/import-emails", response_model=schemas.CampaignRunOut)
+async def import_campaign_emails(
+    campaign_id: uuid.UUID,
+    payload: schemas.CampaignEmailsIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> schemas.CampaignRunOut:
+    campaign = await _get_campaign_or_404(db, user.id, campaign_id)
+    emails = campaign_service.extract_email_list(payload.emails)
+    imported = await campaign_service.import_email_addresses(db, user, campaign, emails)
+    return schemas.CampaignRunOut(campaign_id=campaign_id, queued=imported, message=f"Imported {imported} email addresses")
+
+
+@router.post("/campaigns/{campaign_id}/import-emails-file", response_model=schemas.CampaignRunOut)
+async def import_campaign_emails_file(
+    campaign_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> schemas.CampaignRunOut:
+    campaign = await _get_campaign_or_404(db, user.id, campaign_id)
+    content = await file.read()
+    emails = campaign_service.extract_email_list_from_file(content, file.filename or "")
+    imported = await campaign_service.import_email_addresses(db, user, campaign, emails)
+    return schemas.CampaignRunOut(campaign_id=campaign_id, queued=imported, message=f"Imported {imported} email addresses")
+
+
 @router.post("/campaigns/{campaign_id}/run", response_model=dict)
 async def run_campaign(
     campaign_id: uuid.UUID,
