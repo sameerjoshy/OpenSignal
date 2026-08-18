@@ -17,6 +17,8 @@ jobs:
           node-version: "18"
 
       - name: Install & build
+        env:
+          VITE_API_URL: https://opensignal-xdn4.onrender.com
         run: |
           cd frontend
           npm ci
