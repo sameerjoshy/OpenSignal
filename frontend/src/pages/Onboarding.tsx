@@ -43,7 +43,7 @@ const SERVICE_FIELDS: Record<string, FieldDef[]> = {
     { key: "property_id", label: "GA4 property ID", placeholder: "123456789", target: "config.property_id" },
   ],
   sec_edgar: [],
-  bedrock: [],
+  deepseek: [],
 };
 
 const STEPS = [
@@ -232,7 +232,7 @@ export default function Onboarding() {
             </p>
             <ul className="check-list">
               <li>Signal detection from Apollo, NewsAPI, SEC EDGAR and more</li>
-              <li>AI scoring with AWS Bedrock</li>
+              <li>AI scoring with DeepSeek</li>
               <li>Personalized email generation and sending</li>
               <li>CRM sync to HubSpot or Salesforce</li>
             </ul>

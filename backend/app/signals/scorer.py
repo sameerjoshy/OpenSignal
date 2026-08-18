@@ -1,4 +1,4 @@
-"""AI Account Scoring - Bedrock Claude assigns a 0-100 buying-intent score and Tier 1/2/3."""
+"""AI Account Scoring - DeepSeek assigns a 0-100 buying-intent score and Tier 1/2/3."""
 
 import logging
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud
 from app.database.models import Account, User
-from app.services.bedrock import BedrockClient
+from app.services.deepseek import DeepSeekClient
 
 logger = logging.getLogger("opensignal.signals")
 
@@ -28,8 +28,8 @@ async def score_account(db: AsyncSession, user: User, account: Account) -> dict:
         "employee_count": account.employee_count,
     }
 
-    bedrock = BedrockClient()  # raises ServiceNotConfigured when AWS keys are absent
-    result = await bedrock.score_account(account_dict, signal_dicts)
+    deepseek = DeepSeekClient()  # raises ServiceNotConfigured when the DeepSeek key is absent
+    result = await deepseek.score_account(account_dict, signal_dicts)
 
     account.score = result["score"]
     account.tier = result["tier"]

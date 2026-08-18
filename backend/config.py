@@ -29,12 +29,10 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str = ""
 
-    # AWS Bedrock Claude
-    bedrock_region: str = "us-east-1"
-    bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-    aws_access_key_id: str = ""
-    aws_secret_access_key: str = ""
-    aws_session_token: str = ""
+    # DeepSeek AI (scoring + personalized email generation)
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model_id: str = "deepseek-chat"
 
     # Global service keys (fallbacks; per-user keys are stored encrypted)
     apollo_api_key: str = ""

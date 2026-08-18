@@ -37,8 +37,9 @@ services:
       SUPABASE_URL: ""
       SUPABASE_ANON_KEY: ""
       SUPABASE_SERVICE_ROLE_KEY: ""
-      BEDROCK_REGION: us-east-1
-      BEDROCK_MODEL_ID: anthropic.claude-3-5-sonnet-20240620-v1:0
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: https://api.deepseek.com
+      DEEPSEEK_MODEL_ID: deepseek-chat
     ports:
       - "8000:8000"
     depends_on:
@@ -59,7 +60,9 @@ services:
       JWT_SECRET: dev-jwt-secret-change-me
       ENCRYPTION_KEY: ZGV2LWVuY3J5cHRpb24ta2V5LTI1Ni1iaXRzLXh4eA==
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
-      BEDROCK_REGION: us-east-1
+      DEEPSEEK_API_KEY: ""
+      DEEPSEEK_BASE_URL: https://api.deepseek.com
+      DEEPSEEK_MODEL_ID: deepseek-chat
     depends_on:
       - db
       - redis

@@ -28,14 +28,12 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
-      - key: BEDROCK_REGION
-        value: us-east-1
-      - key: BEDROCK_MODEL_ID
-        value: anthropic.claude-3-5-sonnet-20240620-v1:0
-      - key: AWS_ACCESS_KEY_ID
+      - key: DEEPSEEK_API_KEY
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL_ID
+        value: deepseek-chat
       - key: SENTRY_DSN
         sync: false
 
@@ -46,6 +44,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A app.tasks.celery_app worker -l info
     envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
       - key: REDIS_URL
         sync: false
       - key: DATABASE_URL
@@ -54,3 +56,31 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         generateValue: true
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: APOLLO_API_KEY
+        sync: false
+      - key: HUNTER_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: MAILGUN_API_KEY
+        sync: false
+      - key: MAILGUN_DOMAIN
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: HUBSPOT_API_KEY
+        sync: false
+      - key: SALESFORCE_CLIENT_ID
+        sync: false
+      - key: SALESFORCE_CLIENT_SECRET
+        sync: false
+      - key: SALESFORCE_USERNAME
+        sync: false
+      - key: SALESFORCE_PASSWORD
+        sync: false
+      - key: GA4_PROPERTY_ID
+        sync: false
+      - key: GA4_SERVICE_ACCOUNT_JSON
+        sync: false

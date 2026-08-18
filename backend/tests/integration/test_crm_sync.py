@@ -1,13 +1,20 @@
 """Integration test: campaign -> HubSpot CRM sync (mocked)."""
 
-"""Integration test: campaign -> HubSpot CRM sync (mocked)."""
-
 import uuid
 
+import jwt as pyjwt
 from sqlalchemy import select
 
-from app.database.models import CampaignAccount, CrmSync, User
+from app.database.models import CampaignAccount, CrmSync
+from config import settings
 from tests.conftest import auth_headers
+
+
+def _user_id_from_token(token: str) -> uuid.UUID:
+    payload = pyjwt.decode(
+        token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], options={"verify_aud": False}
+    )
+    return uuid.UUID(payload["sub"])
 
 
 async def _campaign_with_reply(client, token, db):
@@ -34,14 +41,9 @@ async def _campaign_with_reply(client, token, db):
     # A reply in the inbox marks the account as engaged
     from app.database.models import EmailMessage
 
-    user_id = (
-        await db.execute(
-            select(User).where(User.email.like("sarah%@example.com")).order_by(User.created_at.desc()).limit(1)
-        )
-    ).scalar_one().id
     db.add(
         EmailMessage(
-            user_id=user_id,
+            user_id=_user_id_from_token(token),
             campaign_id=uuid.UUID(campaign["id"]),
             account_id=target.account_id,
             subject="Re: quick question",
@@ -86,17 +88,12 @@ async def test_hubspot_sync_creates_sync_rows(client, user_token, db, monkeypatc
     assert "HubSpot" in (error_rows[0].error_message or "")
 
     # Now store a credential so the client can be constructed
-    from app.database.models import ServiceCredential, User
+    from app.database.models import ServiceCredential
     from app.security.encryption import encrypt_value
 
-    user = (
-        await db.execute(
-            select(User).where(User.email.like("sarah%@example.com")).order_by(User.created_at.desc()).limit(1)
-        )
-    ).scalar_one()
     db.add(
         ServiceCredential(
-            user_id=user.id,
+            user_id=_user_id_from_token(user_token),
             service="hubspot",
             encrypted_key=encrypt_value("fake-hubspot-token"),
         )

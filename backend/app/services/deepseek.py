@@ -1,14 +1,14 @@
-"""AWS Bedrock Claude client - account scoring + personalized email generation."""
+"""DeepSeek API client (OpenAI-compatible) - account scoring + personalized email generation."""
 
-import asyncio
 import json
 import re
-from typing import Any
 
-import boto3
+import httpx
 
 from app.services.base import ServiceError, ServiceNotConfigured
 from config import settings
+
+DEFAULT_BASE_URL = "https://api.deepseek.com"
 
 
 def tier_for_score(score: float) -> int:
@@ -37,50 +37,53 @@ def _heuristic_score(signals: list[dict]) -> float:
     return round(score, 1)
 
 
-class BedrockClient:
-    """Minimal Bedrock Claude client (Anthropic message API)."""
+class DeepSeekClient:
+    """Minimal DeepSeek chat-completions client (OpenAI-compatible API)."""
 
     def __init__(self) -> None:
-        if not settings.aws_access_key_id or not settings.aws_secret_access_key:
-            raise ServiceNotConfigured("bedrock")
-        kwargs: dict[str, Any] = {
-            "region_name": settings.bedrock_region,
-            "aws_access_key_id": settings.aws_access_key_id,
-            "aws_secret_access_key": settings.aws_secret_access_key,
-        }
-        if settings.aws_session_token:
-            kwargs["aws_session_token"] = settings.aws_session_token
-        self._client = boto3.client("bedrock-runtime", **kwargs)
-        self.model_id = settings.bedrock_model_id
+        if not settings.deepseek_api_key:
+            raise ServiceNotConfigured("deepseek")
+        self.api_key = settings.deepseek_api_key
+        self.base_url = (settings.deepseek_base_url or DEFAULT_BASE_URL).rstrip("/")
+        self.model_id = settings.deepseek_model_id
 
-    def _invoke(self, system: str, messages: list[dict], max_tokens: int = 1500, temperature: float = 0.3) -> str:
-        body = {
-            "anthropic_version": "bedrock-2023-05-31",
+    async def _chat(
+        self,
+        system: str,
+        messages: list[dict],
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+    ) -> str:
+        payload = {
+            "model": self.model_id,
+            "messages": [{"role": "system", "content": system}, *messages],
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "system": system,
-            "messages": messages,
         }
         try:
-            resp = self._client.invoke_model(
-                modelId=self.model_id,
-                body=json.dumps(body),
-                contentType="application/json",
-                accept="application/json",
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json=payload,
+                )
+        except httpx.HTTPError as exc:
+            raise ServiceError(f"DeepSeek request failed: {exc}", status_code=502) from exc
+        if resp.status_code >= 400:
+            raise ServiceError(
+                f"DeepSeek API error ({resp.status_code}): {resp.text[:300]}", status_code=502
             )
-        except Exception as exc:  # noqa: BLE001
-            raise ServiceError(f"Bedrock request failed: {exc}", status_code=502) from exc
-        data = json.loads(resp["body"].read())
-        return data["content"][0]["text"]
-
-    async def _invoke_async(self, system: str, messages: list[dict], **kwargs) -> str:
-        return await asyncio.to_thread(self._invoke, system, messages, **kwargs)
+        data = resp.json()
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ServiceError("DeepSeek returned an unexpected response") from exc
 
     @staticmethod
     def _extract_json(text: str) -> dict:
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if not match:
-            raise ServiceError("Bedrock returned invalid JSON")
+            raise ServiceError("DeepSeek returned invalid JSON")
         return json.loads(match.group(0))
 
     async def score_account(self, account: dict, signals: list[dict]) -> dict:
@@ -106,7 +109,7 @@ class BedrockClient:
                 ),
             }
         ]
-        text = await self._invoke_async(system, messages, max_tokens=500, temperature=0.2)
+        text = await self._chat(system, messages, max_tokens=500, temperature=0.2)
         try:
             result = self._extract_json(text)
             score = float(result.get("score", 0))
@@ -154,7 +157,7 @@ class BedrockClient:
             + (f"USE THIS TEMPLATE AS A BASE (still personalize):\n{template.get('body', '')}\n" if template else "")
         )
         messages = [{"role": "user", "content": user_content}]
-        text = await self._invoke_async(system, messages, max_tokens=600, temperature=0.7)
+        text = await self._chat(system, messages, max_tokens=600, temperature=0.7)
         try:
             result = self._extract_json(text)
             return {"subject": result.get("subject", ""), "body": result.get("body", ""), "model_used": self.model_id}

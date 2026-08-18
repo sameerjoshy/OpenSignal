@@ -91,11 +91,11 @@ SERVICES: list[ServiceMeta] = [
         tags=["signal"],
     ),
     ServiceMeta(
-        "bedrock",
-        "AWS Bedrock",
-        "Claude scoring and personalized email generation.",
-        "aws_access_key_id",
-        free_tier_note="Free credits ($100/month value)",
+        "deepseek",
+        "DeepSeek",
+        "DeepSeek scoring and personalized email generation.",
+        "deepseek_api_key",
+        free_tier_note="Low-cost OpenAI-compatible API",
         tags=["ai"],
     ),
 ]

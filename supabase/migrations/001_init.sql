@@ -80,7 +80,7 @@ create index if not exists idx_signals_user_account on signals(user_id, account_
 create index if not exists idx_signals_detected on signals(account_id, detected_at desc);
 
 -- ============================================================
--- SIGNAL SCORES (Bedrock Claude scoring log)
+-- SIGNAL SCORES (DeepSeek scoring log)
 -- ============================================================
 create table if not exists signal_scores (
   id                uuid primary key default gen_random_uuid(),

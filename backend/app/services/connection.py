@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.apollo import ApolloClient
 from app.services.base import ServiceError
-from app.services.bedrock import BedrockClient
+from app.services.deepseek import DeepSeekClient
 from app.services.credentials import resolve_credentials, require_key
 from app.services.ga4 import Ga4Client
 from app.services.hubspot import HubSpotClient
@@ -79,12 +79,15 @@ async def test_service(db: AsyncSession, user_id, service: str) -> dict:
         await client.detect_signals("Example", days=1)
         return {"ok": True, "message": "GA4 connected", "quota": {"note": "Free tier"}}
 
-    if service == "bedrock":
-        client = BedrockClient()
-        await client._invoke_async(
-            "Respond with exactly: OK", [{"role": "user", "content": "Ping"}], max_tokens=8, temperature=0
+    if service == "deepseek":
+        client = DeepSeekClient()
+        await client._chat(
+            "Respond with exactly: OK",
+            [{"role": "user", "content": "Ping"}],
+            max_tokens=8,
+            temperature=0,
         )
-        return {"ok": True, "message": "Bedrock Claude connected", "quota": {"note": "Free credits"}}
+        return {"ok": True, "message": "DeepSeek connected", "quota": {"note": "Low-cost API"}}
 
     if service == "sec_edgar":
         client = SecEdgarClient()

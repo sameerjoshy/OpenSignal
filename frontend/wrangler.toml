@@ -1,0 +1,5 @@
+﻿name = "opensignal"
+type = "javascript"
+
+[env.production]
+vars = { REACT_APP_API_URL = "https://opensignal-xdn4.onrender.com" }

@@ -97,7 +97,7 @@ export default function CampaignBuilder() {
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Used by Claude to generate personalized emails, e.g. 'We sell revenue intelligence for GTM teams.'"
+              placeholder="Used by DeepSeek to generate personalized emails, e.g. 'We sell revenue intelligence for GTM teams.'"
             />
           </div>
           <div className="field">

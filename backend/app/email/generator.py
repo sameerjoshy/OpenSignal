@@ -1,4 +1,4 @@
-"""Email generation - Claude personalizes each email per account using detected signals."""
+"""Email generation - DeepSeek personalizes each email per account using detected signals."""
 
 import logging
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud
 from app.database.models import Account, Campaign, User
-from app.services.bedrock import BedrockClient
+from app.services.deepseek import DeepSeekClient
 
 logger = logging.getLogger("opensignal.email")
 
@@ -22,7 +22,7 @@ async def build_personalized_email(
     sequence_step: int = 1,
     template: dict | None = None,
 ) -> dict:
-    """Generate {subject, body} via Bedrock Claude, personalized to the account."""
+    """Generate {subject, body} via DeepSeek, personalized to the account."""
     signals = await crud.list_signals(
         db, user.id, account_id=account.id, since=datetime.utcnow() - timedelta(days=90), limit=10
     )
@@ -35,8 +35,8 @@ async def build_personalized_email(
         "industry": account.industry,
         "employee_count": account.employee_count,
     }
-    bedrock = BedrockClient()
-    return await bedrock.generate_email(
+    deepseek = DeepSeekClient()
+    return await deepseek.generate_email(
         account=account_dict,
         campaign={"name": campaign.name},
         signal_highlights=highlights,

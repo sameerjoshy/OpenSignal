@@ -45,7 +45,7 @@ async def generate_message_for_account(
     product_context: str,
     sequence_step: int = 1,
 ) -> EmailMessage | None:
-    """Generate (via Claude) and persist a draft email for a campaign account."""
+    """Generate (via DeepSeek) and persist a draft email for a campaign account."""
     to_email = await resolve_contact_email(db, user, account)
     if not to_email:
         logger.warning("No contact email resolvable for %s; skipping generation", account.company_name)

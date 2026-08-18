@@ -35,7 +35,7 @@ const SERVICE_FIELDS: Record<string, { key: string; label: string; placeholder: 
     { key: "property_id", label: "GA4 property ID", placeholder: "123456789", target: "config.property_id" },
   ],
   sec_edgar: [],
-  bedrock: [],
+  deepseek: [],
 };
 
 export default function Settings() {
