@@ -7,7 +7,9 @@ from config import settings
 
 def _async_url(url: str) -> str:
     if url.startswith("postgresql://") and "+asyncpg" not in url:
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if "sslmode=" in url:
+        url = url.replace("sslmode=", "ssl=")
     return url
 
 
