@@ -19,7 +19,7 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://app.gtm-360.com
+        value: https://opensignal.pages.dev
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
