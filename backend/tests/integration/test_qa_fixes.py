@@ -65,3 +65,15 @@ async def test_sendgrid_webhook_unconfigured_returns_403_not_500(client):
         headers={"Content-Type": "application/json"},
     )
     assert resp.status_code == 403
+
+
+async def test_save_ga4_with_invalid_config_returns_clean_error_not_500(client, user_token):
+    """Saving a GA4 config missing required keys must return a clean error, not a 500."""
+    resp = await client.post(
+        "/api/v1/settings/services",
+        json={"service": "ga4", "config": {"property_id": "123", "service_account_json": '{"fake": true}'}},
+        headers=auth_headers(user_token),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["ok"] is False
+    assert "client_email" in resp.json()["message"]

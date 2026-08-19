@@ -32,6 +32,8 @@ class Ga4Client:
             self.sa = json.loads(service_account_json)
         except json.JSONDecodeError as exc:
             raise ServiceError("GA4 service account JSON is invalid") from exc
+        if not isinstance(self.sa, dict) or not self.sa.get("client_email") or not self.sa.get("private_key"):
+            raise ServiceError("GA4 service account JSON must include client_email and private_key")
 
     async def _access_token(self) -> str:
         cache_key = self.sa.get("client_email", "")
