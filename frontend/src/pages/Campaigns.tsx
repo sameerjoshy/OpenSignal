@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useCampaigns } from "../hooks/useCampaigns";
-import Spinner from "../components/Spinner";
+import { SkeletonList } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { StatusBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
@@ -87,9 +87,7 @@ export default function Campaigns() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="page-loading">
-          <Spinner />
-        </div>
+        <SkeletonList rows={5} />
       ) : campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"

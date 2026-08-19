@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import MetricCard from "../components/MetricCard";
-import Spinner from "../components/Spinner";
+import Skeleton from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
 import { useLiveMetrics } from "../hooks/useLiveMetrics";
@@ -85,11 +85,7 @@ export default function Dashboard() {
   const recommendations = useMemo(() => (learning?.recommendations ?? []).slice(0, 4), [learning]);
 
   if (loading) {
-    return (
-      <div className="page-loading">
-        <Spinner />
-      </div>
-    );
+    return <Skeleton variant="page" />;
   }
 
   if (!analytics) {

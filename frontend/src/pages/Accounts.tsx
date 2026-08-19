@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import Spinner from "../components/Spinner";
+import { SkeletonList } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { TierBadge } from "../components/Badges";
 import { formatDate, formatNumber } from "../utils/format";
@@ -46,9 +46,7 @@ export default function Accounts() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="page-loading">
-          <Spinner />
-        </div>
+        <SkeletonList rows={6} />
       ) : accounts.length === 0 ? (
         <EmptyState
           title="No accounts yet"
