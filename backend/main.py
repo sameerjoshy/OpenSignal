@@ -12,6 +12,7 @@ from app.auth.routes import router as auth_router
 from app.campaigns.routes import router as campaigns_router
 from app.crm.routes import router as crm_router
 from app.email.digest_routes import router as digest_router
+from app.email.followup_routes import router as followup_router
 from app.email.routes import router as email_router
 from app.email.reply_routes import router as replies_router
 from app.email.webhooks import router as webhooks_router
@@ -91,6 +92,7 @@ app.include_router(signals_router, prefix=f"{API}", tags=["signals", "accounts"]
 app.include_router(campaigns_router, prefix=f"{API}", tags=["campaigns"])
 app.include_router(email_router, prefix=f"{API}", tags=["email"])
 app.include_router(replies_router, prefix=f"{API}", tags=["replies"])
+app.include_router(followup_router, prefix=f"{API}", tags=["follow-ups"])
 app.include_router(digest_router, prefix=f"{API}", tags=["digest"])
 app.include_router(crm_router, prefix=f"{API}", tags=["crm"])
 app.include_router(analytics_router, prefix=f"{API}", tags=["analytics"])

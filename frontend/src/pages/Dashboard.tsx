@@ -6,8 +6,19 @@ import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
 import { useLiveMetrics } from "../hooks/useLiveMetrics";
+import { useToast } from "../components/Toast";
 import { timeAgo, formatCurrency } from "../utils/format";
 import type { Analytics, EmailReply, Learning, Outcomes, Signal } from "../types";
+
+interface FollowUp {
+  message_id: string;
+  account_id?: string | null;
+  company_name?: string | null;
+  contact_email: string;
+  subject: string;
+  campaign_name?: string | null;
+  clicked_at: string;
+}
 
 const LIVE_LABELS: Record<string, string> = {
   email_sent: "Email sent",
@@ -23,30 +34,48 @@ export default function Dashboard() {
   const [learning, setLearning] = useState<Learning | null>(null);
   const [recentSignals, setRecentSignals] = useState<Signal[]>([]);
   const [replies, setReplies] = useState<EmailReply[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [followUpSending, setFollowUpSending] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { events, connected } = useLiveMetrics();
+  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
       try {
-        const [analyticsData, outcomesData, learningData, signalsData, repliesData] = await Promise.all([
+        const [analyticsData, outcomesData, learningData, signalsData, repliesData, followUpsData] = await Promise.all([
           api.get<Analytics>("/api/v1/analytics"),
           api.get<Outcomes>("/api/v1/analytics/outcomes"),
           api.get<Learning>("/api/v1/analytics/learning"),
           api.get<Signal[]>("/api/v1/signals?limit=8"),
           api.get<EmailReply[]>("/api/v1/replies"),
+          api.get<FollowUp[]>("/api/v1/follow-ups").catch(() => []),
         ]);
         setAnalytics(analyticsData);
         setOutcomes(outcomesData);
         setLearning(learningData);
         setRecentSignals(signalsData);
         setReplies(repliesData);
+        setFollowUps(followUpsData);
       } finally {
         setLoading(false);
       }
     }
     void load();
   }, []);
+
+  async function sendFollowUp(messageId: string) {
+    setFollowUpSending(messageId);
+    try {
+      const result = await api.post<{ message: string }>(`/api/v1/follow-ups/${messageId}/send`);
+      toast(result.message, "success");
+      setFollowUps((prev) => prev.filter((f) => f.message_id !== messageId));
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setFollowUpSending(null);
+    }
+  }
 
   const hotSignals = useMemo(
     () => recentSignals.filter((s) => s.account_tier === 1 || (s.account_score ?? 0) >= 70).slice(0, 6),
@@ -149,6 +178,36 @@ export default function Dashboard() {
                   </li>
                 ))}
               </ol>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Follow up now</h2>
+            <span className="muted">{followUps.length} clicked, no reply</span>
+          </div>
+          <div className="card-body">
+            {followUps.length === 0 ? (
+              <EmptyState title="Nothing to follow up on" description="Accounts that click but don't reply appear here — prime time to send a step-2 nudge." />
+            ) : (
+              <ul className="signal-list">
+                {followUps.slice(0, 5).map((f) => (
+                  <li key={f.message_id} className="signal-row">
+                    <div className="signal-main">
+                      <div className="signal-title">{f.company_name ?? f.contact_email}</div>
+                      <div className="signal-meta">
+                        <span className="signal-account">{f.contact_email}</span>
+                        <span className="signal-account">· “{f.subject}”</span>
+                      </div>
+                      <div className="signal-meta">Clicked {timeAgo(f.clicked_at)}</div>
+                    </div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => void sendFollowUp(f.message_id)} disabled={followUpSending === f.message_id}>
+                      {followUpSending === f.message_id ? "Sending…" : "Send follow-up"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>

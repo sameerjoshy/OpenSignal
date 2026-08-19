@@ -252,3 +252,15 @@ async def test_share_link_create_and_read(client, user_token):
 async def test_share_link_invalid(client):
     resp = await client.get("/api/v1/analytics/shared/badtoken.payload")
     assert resp.status_code == 400
+
+
+async def test_follow_ups_list_empty(client, user_token):
+    resp = await client.get("/api/v1/follow-ups", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_follow_up_send_requires_owned_message(client):
+    token, _ = await _signup(client)
+    resp = await client.post(f"/api/v1/follow-ups/{uuid.uuid4()}/send", headers=auth_headers(token))
+    assert resp.status_code == 404
