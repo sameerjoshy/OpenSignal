@@ -55,3 +55,13 @@ async def test_accounts_tier_filter(client, user_token):
     names = [a["company_name"] for a in resp.json()]
     assert "TierThree Co" in names
     assert "TierOne Co" not in names
+
+
+async def test_sendgrid_webhook_unconfigured_returns_403_not_500(client):
+    """A SendGrid webhook with no verification key configured must 403, not 500."""
+    resp = await client.post(
+        "/api/v1/webhooks/sendgrid",
+        content="{}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert resp.status_code == 403

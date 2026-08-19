@@ -13,6 +13,7 @@ from app.email.replies import process_inbound_reply
 from app.email.service import apply_event, get_message_by_provider_id
 from app.services.credentials import resolve_credentials
 from app.services.mailgun import MailgunClient
+from config import settings
 
 logger = logging.getLogger("opensignal.email.webhooks")
 router = APIRouter()
