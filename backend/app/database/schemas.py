@@ -373,3 +373,62 @@ class EmailReplyOut(BaseModel):
     created_at: datetime
     company_name: str | None = None
     original_subject: str | None = None
+
+
+# ---------------------------------------------------------------- Intelligence
+class AccountMessageOut(BaseModel):
+    id: uuid.UUID
+    campaign_id: uuid.UUID | None = None
+    campaign_name: str | None = None
+    subject: str
+    to_email: str
+    status: str
+    sequence_step: int
+    sent_at: datetime | None = None
+    opened_at: datetime | None = None
+    clicked_at: datetime | None = None
+    replied_at: datetime | None = None
+    created_at: datetime
+
+
+class AccountIntelligenceOut(BaseModel):
+    account_id: uuid.UUID
+    contact_email: str | None = None
+    emails_sent: int = 0
+    emails_opened: int = 0
+    emails_clicked: int = 0
+    emails_replied: int = 0
+    open_rate: float = 0.0
+    reply_rate: float = 0.0
+    high_intent_signals: int = 0
+    medium_intent_signals: int = 0
+    low_intent_signals: int = 0
+    campaigns: list[AccountMessageOut] = []
+    best_message: AccountMessageOut | None = None
+
+
+# ---------------------------------------------------------------- Timeline
+class TimelineItemOut(BaseModel):
+    event_type: str
+    label: str
+    occurred_at: datetime
+    account_name: str | None = None
+    subject: str | None = None
+    to_email: str | None = None
+    detail: str | None = None
+
+
+class CampaignTimelineOut(BaseModel):
+    campaign_id: uuid.UUID
+    items: list[TimelineItemOut]
+
+
+# ---------------------------------------------------------------- Digest
+class DigestPreviewOut(BaseModel):
+    subject: str
+    text: str
+
+
+class DigestSendOut(BaseModel):
+    ok: bool
+    message: str

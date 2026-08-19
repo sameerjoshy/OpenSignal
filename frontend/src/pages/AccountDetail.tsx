@@ -6,7 +6,7 @@ import EmptyState from "../components/EmptyState";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
-import type { Account, Signal } from "../types";
+import type { Account, AccountIntelligence, Signal } from "../types";
 
 const HIGH_INTENT = new Set(["job_change", "funding", "acquisition", "key_decision_maker"]);
 const MEDIUM_INTENT = new Set(["tech_stack", "web_traffic", "product_launch", "leadership", "major_event", "website_intent"]);
@@ -22,18 +22,21 @@ export default function AccountDetail() {
   const { toast } = useToast();
   const [account, setAccount] = useState<Account | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [intel, setIntel] = useState<AccountIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
   const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [accountData, signalsData] = await Promise.all([
+        const [accountData, signalsData, intelData] = await Promise.all([
           api.get<Account>(`/api/v1/accounts/${id}`),
           api.get<Signal[]>(`/api/v1/accounts/${id}/signals`),
+          api.get<AccountIntelligence>(`/api/v1/accounts/${id}/intelligence`).catch(() => null),
         ]);
         setAccount(accountData);
         setSignals(signalsData);
+        setIntel(intelData);
       } catch (err) {
         toast((err as Error).message, "error");
       } finally {
@@ -48,12 +51,14 @@ export default function AccountDetail() {
     setScoring(true);
     try {
       await api.post<{ score: number }>(`/api/v1/accounts/${id}/score`);
-      const [accountData, signalsData] = await Promise.all([
+      const [accountData, signalsData, intelData] = await Promise.all([
         api.get<Account>(`/api/v1/accounts/${id}`),
         api.get<Signal[]>(`/api/v1/accounts/${id}/signals`),
+        api.get<AccountIntelligence>(`/api/v1/accounts/${id}/intelligence`).catch(() => null),
       ]);
       setAccount(accountData);
       setSignals(signalsData);
+      setIntel(intelData);
       toast(`Account rescored — score ${accountData.score ?? "—"}`, "success");
     } catch (err) {
       toast((err as Error).message, "error");
@@ -82,6 +87,8 @@ export default function AccountDetail() {
       />
     );
   }
+
+  const best = intel?.best_message;
 
   return (
     <div className="stack">
@@ -119,6 +126,83 @@ export default function AccountDetail() {
         <div className="metric-card accent-green">
           <div className="metric-label">Revenue</div>
           <div className="metric-value">{account.revenue ? `$${Math.round(account.revenue / 1e6)}M` : "—"}</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Account intelligence</h2>
+          <span className="muted">Best contact · engagement · campaign history</span>
+        </div>
+        <div className="card-body">
+          <div className="metric-grid">
+            <div className="metric-card accent-green">
+              <div className="metric-label">Best contact</div>
+              <div className="metric-value">{intel?.contact_email ? "✓" : "—"}</div>
+              {intel?.contact_email && <div className="metric-delta">{intel.contact_email}</div>}
+            </div>
+            <div className="metric-card accent-blue">
+              <div className="metric-label">Emails sent</div>
+              <div className="metric-value">{intel?.emails_sent ?? 0}</div>
+            </div>
+            <div className="metric-card accent-indigo">
+              <div className="metric-label">Opened</div>
+              <div className="metric-value">{intel ? `${intel.open_rate}%` : "—"}</div>
+              <div className="metric-delta">{intel?.emails_opened ?? 0} opened</div>
+            </div>
+            <div className="metric-card accent-amber">
+              <div className="metric-label">Replied</div>
+              <div className="metric-value">{intel ? `${intel.reply_rate}%` : "—"}</div>
+              <div className="metric-delta">{intel?.emails_replied ?? 0} replies</div>
+            </div>
+          </div>
+
+          <div className="intent-legend" style={{ margin: "1rem 0 0.5rem" }}>
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-high" /> {intel?.high_intent_signals ?? 0} high-intent signals</span>
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-medium" /> {intel?.medium_intent_signals ?? 0} medium-intent signals</span>
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-low" /> {intel?.low_intent_signals ?? 0} low-intent signals</span>
+          </div>
+
+          {best && (
+            <div className="recommendation-item">
+              <div>
+                <strong>Best-performing message</strong>
+                <div className="signal-meta">“{best.subject}” · {best.campaign_name ?? "Campaign"}</div>
+              </div>
+              <span className="signal-time">{best.replied_at ? `Replied ${timeAgo(best.replied_at)}` : best.opened_at ? `Opened ${timeAgo(best.opened_at)}` : `Sent ${timeAgo(best.sent_at ?? best.created_at)}`}</span>
+            </div>
+          )}
+
+          {intel && intel.campaigns.length > 0 && (
+            <table className="data-table" style={{ marginTop: "1rem" }}>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Sent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intel.campaigns.map((m) => (
+                  <tr key={m.id}>
+                    <td>{m.campaign_name ?? "—"}</td>
+                    <td>{m.subject}</td>
+                    <td>
+                      <span className={`status-pill status-${m.status}`}>{m.status}</span>
+                    </td>
+                    <td className="muted">{m.sent_at ? formatDateTime(m.sent_at) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {intel && intel.campaigns.length === 0 && (
+            <p className="muted" style={{ marginTop: "0.5rem" }}>
+              No campaign emails yet. Run this account in a campaign to build its history.
+            </p>
+          )}
         </div>
       </div>
 

@@ -11,6 +11,7 @@ from app.analytics.routes import router as analytics_router
 from app.auth.routes import router as auth_router
 from app.campaigns.routes import router as campaigns_router
 from app.crm.routes import router as crm_router
+from app.email.digest_routes import router as digest_router
 from app.email.routes import router as email_router
 from app.email.reply_routes import router as replies_router
 from app.email.webhooks import router as webhooks_router
@@ -37,6 +38,17 @@ async def lifespan(app: FastAPI):
         )
         logger.info("Sentry initialized")
 
+    scheduler_task = None
+    if settings.is_production:
+        try:
+            from app.database.session import AsyncSessionLocal
+            from app.email.digest_scheduler import start_digest_scheduler
+
+            scheduler_task = start_digest_scheduler(AsyncSessionLocal)
+            logger.info("Weekly digest scheduler started")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Digest scheduler could not start: %s", exc)
+
     if not settings.is_production:
         try:
             from app.database.models import Base
@@ -47,7 +59,11 @@ async def lifespan(app: FastAPI):
             logger.info("Development mode: ensured tables exist")
         except Exception as exc:  # noqa: BLE001
             logger.warning("Skipped auto-create tables (is DATABASE_URL set?): %s", exc)
-    yield
+    try:
+        yield
+    finally:
+        if scheduler_task is not None:
+            scheduler_task.cancel()
 
 
 app = FastAPI(
@@ -75,6 +91,7 @@ app.include_router(signals_router, prefix=f"{API}", tags=["signals", "accounts"]
 app.include_router(campaigns_router, prefix=f"{API}", tags=["campaigns"])
 app.include_router(email_router, prefix=f"{API}", tags=["email"])
 app.include_router(replies_router, prefix=f"{API}", tags=["replies"])
+app.include_router(digest_router, prefix=f"{API}", tags=["digest"])
 app.include_router(crm_router, prefix=f"{API}", tags=["crm"])
 app.include_router(analytics_router, prefix=f"{API}", tags=["analytics"])
 app.include_router(settings_router, prefix=f"{API}", tags=["settings"])

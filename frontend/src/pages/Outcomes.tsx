@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
 import MetricCard from "../components/MetricCard";
+import { useToast } from "../components/Toast";
 import { formatCurrency } from "../utils/format";
 import type { Outcomes } from "../types";
 
@@ -10,6 +11,8 @@ export default function OutcomesPage() {
   const [data, setData] = useState<Outcomes | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
 
   async function load() {
     setError(null);
@@ -25,6 +28,18 @@ export default function OutcomesPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      await api.download("/api/v1/analytics/export.csv", "opensignal_outcomes.csv");
+      toast("CSV exported", "success");
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -114,6 +129,9 @@ export default function OutcomesPage() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">What this means</h2>
+          <button className="btn btn-secondary btn-sm" onClick={() => void exportCsv()} disabled={exporting}>
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
         </div>
         <div className="card-body">
           <p className="muted-note">{data.note}</p>

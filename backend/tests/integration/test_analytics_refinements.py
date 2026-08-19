@@ -145,3 +145,58 @@ async def test_campaign_detail_exposes_run_log(client, user_token):
     body = detail.json()
     assert "run_log" in body
     assert "last_run_at" in body
+
+
+async def test_account_intelligence_endpoint(client, user_token):
+    account = await _seed_account(client, user_token)
+    resp = await client.get(f"/api/v1/accounts/{account['id']}/intelligence", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["account_id"] == account["id"]
+    assert "contact_email" in body
+    assert "emails_sent" in body
+    assert "high_intent_signals" in body
+    assert isinstance(body["campaigns"], list)
+
+
+async def test_campaign_timeline_endpoint(client, user_token):
+    resp = await client.post(
+        "/api/v1/campaigns",
+        headers=auth_headers(user_token),
+        json={"name": "Timeline Test"},
+    )
+    assert resp.status_code == 201, resp.text
+    campaign_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/campaigns/{campaign_id}/timeline", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["campaign_id"] == campaign_id
+    assert len(body["items"]) >= 1
+    assert body["items"][0]["event_type"] == "created"
+    assert body["items"][0]["label"] == "Campaign created"
+
+
+async def test_digest_preview_endpoint(client, user_token):
+    resp = await client.get("/api/v1/digest/preview", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "subject" in body
+    assert "text" in body
+    assert "OpenSignal Team" in body["text"]
+
+
+async def test_digest_send_without_credentials(client, user_token):
+    # No mailgun key in tests -> should return a friendly not-configured response.
+    resp = await client.post("/api/v1/digest/send", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is False
+
+
+async def test_analytics_export_csv(client, user_token):
+    resp = await client.get("/api/v1/analytics/export.csv", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/csv")
+    text = resp.text
+    assert "metric,value" in text
+    assert "pipeline_value" in text

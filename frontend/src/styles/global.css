@@ -1382,7 +1382,7 @@ h4 {
 }
 .recommendation-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
 }
 .recommendation-detail {
   color: var(--text-muted);
@@ -1564,4 +1564,97 @@ h4 {
 }
 .intent-dot-low {
   background: #9ca3af;
+}
+
+/* ---------------------------------------------------------------- Data table / status pills */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.status-sent {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+.status-opened {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #3b82f6;
+}
+.status-clicked {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: #8b5cf6;
+}
+.status-replied {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+.status-draft {
+  color: var(--text-muted);
+}
+
+.digest-pre {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* ---------------------------------------------------------------- Timeline events */
+.timeline-item.created .timeline-dot {
+  background: #6366f1;
+}
+.timeline-item.sent .timeline-dot {
+  background: #3b82f6;
+}
+.timeline-item.opened .timeline-dot {
+  background: #f59e0b;
+}
+.timeline-item.clicked .timeline-dot {
+  background: #8b5cf6;
+}
+.timeline-item.replied .timeline-dot {
+  background: #ef4444;
+}
+.timeline-item.reply_classified .timeline-dot {
+  background: #10b981;
 }

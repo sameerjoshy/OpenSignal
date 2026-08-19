@@ -6,7 +6,7 @@ import EmptyState from "../components/EmptyState";
 import { StatusBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
-import type { Campaign, CampaignAccount, EmailMessage } from "../types";
+import type { Campaign, CampaignAccount, CampaignTimeline, EmailMessage } from "../types";
 
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +14,7 @@ export default function CampaignDetail() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [targets, setTargets] = useState<CampaignAccount[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
+  const [timeline, setTimeline] = useState<CampaignTimeline | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"run" | "send" | "crm" | "emails" | null>(null);
   const [csvBusy, setCsvBusy] = useState(false);
@@ -21,14 +22,16 @@ export default function CampaignDetail() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [campaignData, targetsData, emailsData] = await Promise.all([
+    const [campaignData, targetsData, emailsData, timelineData] = await Promise.all([
       api.get<Campaign>(`/api/v1/campaigns/${id}`),
       api.get<CampaignAccount[]>(`/api/v1/campaigns/${id}/accounts`),
       api.get<EmailMessage[]>(`/api/v1/campaigns/${id}/emails`),
+      api.get<CampaignTimeline>(`/api/v1/campaigns/${id}/timeline`).catch(() => null),
     ]);
     setCampaign(campaignData);
     setTargets(targetsData);
     setEmails(emailsData);
+    setTimeline(timelineData);
   }, [id]);
 
   useEffect(() => {
@@ -238,36 +241,57 @@ export default function CampaignDetail() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Run history</h2>
+          <h2 className="card-title">Campaign replay</h2>
+          <span className="muted">{timeline ? `${timeline.items.length} events` : "Live run log below"}</span>
         </div>
         <div className="card-body">
           <div className="timeline">
-            <div className="timeline-item">
-              <span className="timeline-dot" />
-              <div className="timeline-body">
-                <div className="timeline-title">Campaign created</div>
-                <div className="timeline-meta">{formatDateTime(campaign.created_at)}</div>
-              </div>
-            </div>
-            {campaign.last_run_at && (
-              <div className="timeline-item">
-                <span className="timeline-dot" />
-                <div className="timeline-body">
-                  <div className="timeline-title">Last run</div>
-                  <div className="timeline-meta">{formatDateTime(campaign.last_run_at)}</div>
-                  {campaign.run_log && <div className="timeline-detail">{campaign.run_log}</div>}
-                </div>
-              </div>
-            )}
-            {emailStats.some((s) => s.value > 0) && (
-              <div className="timeline-item">
-                <span className="timeline-dot" />
-                <div className="timeline-body">
-                  <div className="timeline-title">Outreach in progress</div>
-                  <div className="timeline-meta">
-                    {emailStats.map((s) => `${s.value} ${s.label.toLowerCase()}`).join(" · ")}
+            {timeline && timeline.items.length > 0 ? (
+              timeline.items.map((item, index) => (
+                <div key={`${item.event_type}-${index}`} className={`timeline-item ${item.event_type}`}>
+                  <span className="timeline-dot" />
+                  <div className="timeline-body">
+                    <div className="timeline-title">
+                      {item.label}
+                      {item.account_name ? ` — ${item.account_name}` : ""}
+                    </div>
+                    {item.subject && <div className="timeline-meta">“{item.subject}”</div>}
+                    {item.to_email && <div className="timeline-meta">{item.to_email}</div>}
+                    {item.detail && <div className="timeline-detail">{item.detail}</div>}
+                    <div className="timeline-meta">{formatDateTime(item.occurred_at)}</div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="timeline">
+                <div className="timeline-item created">
+                  <span className="timeline-dot" />
+                  <div className="timeline-body">
+                    <div className="timeline-title">Campaign created</div>
+                    <div className="timeline-meta">{formatDateTime(campaign.created_at)}</div>
+                  </div>
+                </div>
+                {campaign.last_run_at && (
+                  <div className="timeline-item">
+                    <span className="timeline-dot" />
+                    <div className="timeline-body">
+                      <div className="timeline-title">Last run</div>
+                      <div className="timeline-meta">{formatDateTime(campaign.last_run_at)}</div>
+                      {campaign.run_log && <div className="timeline-detail">{campaign.run_log}</div>}
+                    </div>
+                  </div>
+                )}
+                {emailStats.some((s) => s.value > 0) && (
+                  <div className="timeline-item">
+                    <span className="timeline-dot" />
+                    <div className="timeline-body">
+                      <div className="timeline-title">Outreach in progress</div>
+                      <div className="timeline-meta">
+                        {emailStats.map((s) => `${s.value} ${s.label.toLowerCase()}`).join(" · ")}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

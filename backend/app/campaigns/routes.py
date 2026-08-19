@@ -11,6 +11,7 @@ from app.database import crud, schemas
 from app.database.models import Campaign, CampaignAccount, EmailMessage, User
 from app.database.session import get_db
 from app.email.service import send_campaign_emails
+from app.analytics import service as analytics_service
 
 router = APIRouter()
 
@@ -61,6 +62,18 @@ async def get_campaign(
     detail.click_count = await crud.count(db, EmailMessage, campaign_id=campaign_id, status="clicked")
     detail.reply_count = await crud.count(db, EmailMessage, campaign_id=campaign_id, status="replied")
     return detail
+
+
+@router.get("/campaigns/{campaign_id}/timeline", response_model=schemas.CampaignTimelineOut)
+async def campaign_timeline(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> schemas.CampaignTimelineOut:
+    try:
+        return await analytics_service.build_campaign_timeline(db, user, campaign_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.patch("/campaigns/{campaign_id}", response_model=schemas.CampaignOut)

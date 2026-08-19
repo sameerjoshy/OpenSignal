@@ -78,6 +78,26 @@ export const api = {
       method: "POST",
       body: formData,
     }),
+  download: async (path: string, filename: string): Promise<void> => {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}${path}`, { headers });
+    if (!response.ok) {
+      throw new ApiError(response.status, `Download failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
 };
 
 export async function exchangeSupabaseToken(accessToken: string): Promise<TokenResponse> {

@@ -8,6 +8,8 @@ from app.database.models import Account, Signal, User
 from app.database.session import get_db
 from app.auth.dependencies import get_current_user
 from app.signals import detector, scorer
+from app.analytics import service as analytics_service
+from app.services.orchestration import route_campaign
 
 router = APIRouter()
 
@@ -54,6 +56,37 @@ async def get_account(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return schemas.AccountOut.model_validate(account)
+
+
+@router.get("/accounts/{account_id}/orchestration", response_model=dict)
+async def account_orchestration(
+    account_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Omnichannel routing plan for this account based on its buying-intent tier."""
+    account = await crud.get_account_for_user(db, user.id, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    channels = route_campaign(account)
+    return {
+        "account_id": account.id,
+        "tier": account.tier,
+        "channels": channels,
+        "note": "Email is live today; SMS / Slack / LinkedIn are reserved for future channel adapters.",
+    }
+
+
+@router.get("/accounts/{account_id}/intelligence", response_model=schemas.AccountIntelligenceOut)
+async def account_intelligence(
+    account_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> schemas.AccountIntelligenceOut:
+    try:
+        return await analytics_service.build_account_intelligence(db, user, account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/accounts/{account_id}/signals", response_model=list[schemas.SignalOut])

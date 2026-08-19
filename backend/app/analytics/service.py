@@ -6,7 +6,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud, schemas
-from app.database.models import Account, Campaign, EmailEvent, EmailMessage, Signal, User
+from app.database.models import Account, Campaign, CampaignAccount, EmailEvent, EmailMessage, EmailReply, Signal, User
 
 
 async def build_analytics(db: AsyncSession, user: User) -> schemas.AnalyticsOut:
@@ -237,3 +237,188 @@ async def build_learning(db: AsyncSession, user: User) -> schemas.LearningOut:
         email_tactics=email_tactics,
         recommendations=recommendations,
     )
+
+
+# ---------------------------------------------------------------- Intelligence
+HIGH_INTENT_TYPES = {"job_change", "funding", "acquisition", "key_decision_maker"}
+MEDIUM_INTENT_TYPES = {"tech_stack", "web_traffic", "product_launch", "leadership", "major_event", "website_intent"}
+
+
+async def build_account_intelligence(db: AsyncSession, user: User, account_id) -> schemas.AccountIntelligenceOut:
+    account = await db.get(Account, account_id)
+    if not account or account.user_id != user.id:
+        raise ValueError("Account not found")
+
+    contact_email = account.contact_email if getattr(account, "contact_email", None) else None
+    if not contact_email:
+        ca_rows = await db.execute(
+            select(CampaignAccount.contact_email)
+            .join(Account, Account.id == CampaignAccount.account_id)
+            .where(CampaignAccount.account_id == account.id, CampaignAccount.contact_email.isnot(None))
+            .order_by(CampaignAccount.created_at.desc())
+            .limit(1)
+        )
+        row = ca_rows.scalar_one_or_none()
+        contact_email = row or None
+
+    emails_sent = await crud.count(db, EmailMessage, account_id=account.id, status="sent")
+    emails_opened = await crud.count(db, EmailMessage, account_id=account.id, status="opened")
+    emails_clicked = await crud.count(db, EmailMessage, account_id=account.id, status="clicked")
+    emails_replied = await crud.count(db, EmailMessage, account_id=account.id, status="replied")
+
+    # Signals by intent
+    signal_rows = await db.execute(
+        select(Signal.signal_type, func.count(Signal.id)).where(Signal.account_id == account.id).group_by(Signal.signal_type)
+    )
+    high = medium = low = 0
+    for stype, count in signal_rows.all():
+        if stype in HIGH_INTENT_TYPES:
+            high += count
+        elif stype in MEDIUM_INTENT_TYPES:
+            medium += count
+        else:
+            low += count
+
+    # Messages + campaign history for this account
+    msg_rows = await db.execute(
+        select(EmailMessage, Campaign.name)
+        .outerjoin(Campaign, Campaign.id == EmailMessage.campaign_id)
+        .where(EmailMessage.account_id == account.id)
+        .order_by(EmailMessage.created_at.desc())
+        .limit(50)
+    )
+    messages: list[schemas.AccountMessageOut] = []
+    for msg, campaign_name in msg_rows.all():
+        messages.append(
+            schemas.AccountMessageOut(
+                id=msg.id,
+                campaign_id=msg.campaign_id,
+                campaign_name=campaign_name,
+                subject=msg.subject,
+                to_email=msg.to_email,
+                status=msg.status,
+                sequence_step=msg.sequence_step,
+                sent_at=msg.sent_at,
+                opened_at=msg.opened_at,
+                clicked_at=msg.clicked_at,
+                replied_at=msg.replied_at,
+                created_at=msg.created_at,
+            )
+        )
+
+    # Best message = highest engagement, then most recent
+    def _engagement(m: schemas.AccountMessageOut) -> int:
+        if m.replied_at:
+            return 4
+        if m.clicked_at:
+            return 3
+        if m.opened_at:
+            return 2
+        if m.sent_at:
+            return 1
+        return 0
+
+    best = max(messages, key=lambda m: (_engagement(m), m.created_at)) if messages else None
+
+    return schemas.AccountIntelligenceOut(
+        account_id=account.id,
+        contact_email=contact_email,
+        emails_sent=emails_sent,
+        emails_opened=emails_opened,
+        emails_clicked=emails_clicked,
+        emails_replied=emails_replied,
+        open_rate=round(emails_opened / emails_sent * 100, 1) if emails_sent else 0.0,
+        reply_rate=round(emails_replied / emails_sent * 100, 1) if emails_sent else 0.0,
+        high_intent_signals=high,
+        medium_intent_signals=medium,
+        low_intent_signals=low,
+        campaigns=messages,
+        best_message=best,
+    )
+
+
+# ---------------------------------------------------------------- Timeline
+async def build_campaign_timeline(db: AsyncSession, user: User, campaign_id) -> schemas.CampaignTimelineOut:
+    campaign = await db.get(Campaign, campaign_id)
+    if not campaign or campaign.user_id != user.id:
+        raise ValueError("Campaign not found")
+
+    items: list[schemas.TimelineItemOut] = [
+        schemas.TimelineItemOut(
+            event_type="created",
+            label="Campaign created",
+            occurred_at=campaign.created_at,
+            detail=campaign.name,
+        )
+    ]
+
+    msg_rows = await db.execute(
+        select(EmailMessage, Account.company_name)
+        .outerjoin(Account, Account.id == EmailMessage.account_id)
+        .where(EmailMessage.campaign_id == campaign.id)
+        .order_by(EmailMessage.created_at.asc())
+    )
+    for msg, company in msg_rows.all():
+        if msg.sent_at:
+            items.append(
+                schemas.TimelineItemOut(
+                    event_type="sent",
+                    label="Email sent",
+                    occurred_at=msg.sent_at,
+                    account_name=company,
+                    subject=msg.subject,
+                    to_email=msg.to_email,
+                )
+            )
+        if msg.opened_at:
+            items.append(
+                schemas.TimelineItemOut(
+                    event_type="opened",
+                    label="Email opened",
+                    occurred_at=msg.opened_at,
+                    account_name=company,
+                    subject=msg.subject,
+                )
+            )
+        if msg.clicked_at:
+            items.append(
+                schemas.TimelineItemOut(
+                    event_type="clicked",
+                    label="Email clicked",
+                    occurred_at=msg.clicked_at,
+                    account_name=company,
+                    subject=msg.subject,
+                )
+            )
+        if msg.replied_at:
+            items.append(
+                schemas.TimelineItemOut(
+                    event_type="replied",
+                    label="Email replied",
+                    occurred_at=msg.replied_at,
+                    account_name=company,
+                    subject=msg.subject,
+                )
+            )
+
+    # Classified inbound replies
+    reply_rows = await db.execute(
+        select(EmailReply, EmailMessage.subject, Account.company_name)
+        .outerjoin(EmailMessage, EmailMessage.id == EmailReply.email_message_id)
+        .outerjoin(Account, Account.id == EmailMessage.account_id)
+        .where(EmailMessage.campaign_id == campaign.id, EmailReply.user_id == user.id)
+    )
+    for reply, subject, company in reply_rows.all():
+        items.append(
+            schemas.TimelineItemOut(
+                event_type="reply_classified",
+                label=f"Reply classified: {reply.classification}",
+                occurred_at=reply.created_at,
+                account_name=company or None,
+                subject=subject,
+                detail=reply.summary or None,
+            )
+        )
+
+    items.sort(key=lambda i: i.occurred_at)
+    return schemas.CampaignTimelineOut(campaign_id=campaign.id, items=items)

@@ -213,3 +213,59 @@ export interface LiveEvent {
   type: string;
   payload: Record<string, unknown>;
 }
+
+export interface AccountMessage {
+  id: string;
+  campaign_id?: string | null;
+  campaign_name?: string | null;
+  subject: string;
+  to_email: string;
+  status: string;
+  sequence_step: number;
+  sent_at?: string | null;
+  opened_at?: string | null;
+  clicked_at?: string | null;
+  replied_at?: string | null;
+  created_at: string;
+}
+
+export interface AccountIntelligence {
+  account_id: string;
+  contact_email?: string | null;
+  emails_sent: number;
+  emails_opened: number;
+  emails_clicked: number;
+  emails_replied: number;
+  open_rate: number;
+  reply_rate: number;
+  high_intent_signals: number;
+  medium_intent_signals: number;
+  low_intent_signals: number;
+  campaigns: AccountMessage[];
+  best_message?: AccountMessage | null;
+}
+
+export interface TimelineItem {
+  event_type: string;
+  label: string;
+  occurred_at: string;
+  account_name?: string | null;
+  subject?: string | null;
+  to_email?: string | null;
+  detail?: string | null;
+}
+
+export interface CampaignTimeline {
+  campaign_id: string;
+  items: TimelineItem[];
+}
+
+export interface DigestPreview {
+  subject: string;
+  text: string;
+}
+
+export interface DigestSend {
+  ok: boolean;
+  message: string;
+}

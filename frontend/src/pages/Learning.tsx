@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
-import type { Learning } from "../types";
+import { useToast } from "../components/Toast";
+import type { DigestPreview, Learning } from "../types";
 
 function InsightList({ title, items, empty }: { title: string; items: { label: string; detail: string; value: string }[]; empty: string }) {
   return (
@@ -35,6 +36,9 @@ export default function LearningPage() {
   const [data, setData] = useState<Learning | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DigestPreview | null>(null);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
@@ -49,6 +53,27 @@ export default function LearningPage() {
     }
     void load();
   }, []);
+
+  async function loadPreview() {
+    try {
+      setPreview(await api.get<DigestPreview>("/api/v1/digest/preview"));
+      toast("Preview ready", "success");
+    } catch (err) {
+      toast((err as Error).message, "error");
+    }
+  }
+
+  async function sendDigest() {
+    setSending(true);
+    try {
+      const result = await api.post<{ ok: boolean; message: string }>("/api/v1/digest/send");
+      toast(result.message, result.ok ? "success" : "error");
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setSending(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -110,6 +135,32 @@ export default function LearningPage() {
               accounts, time your sends, and double down on what converts.
             </p>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Weekly digest</h2>
+          <div className="action-bar" style={{ margin: 0 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => void loadPreview()}>
+              Preview
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => void sendDigest()} disabled={sending}>
+              {sending ? "Sending…" : "Email me weekly insights"}
+            </button>
+          </div>
+        </div>
+        <div className="card-body">
+          {preview ? (
+            <>
+              <div className="timeline-title">{preview.subject}</div>
+              <pre className="digest-pre">{preview.text}</pre>
+            </>
+          ) : (
+            <p className="muted-note">
+              Send a Friday wrap-up of your signals, pipeline value, and what OpenSignal learned to your inbox.
+            </p>
+          )}
         </div>
       </div>
     </div>
