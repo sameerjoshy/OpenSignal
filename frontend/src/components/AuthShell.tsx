@@ -12,13 +12,13 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
     <div className="auth-shell">
       <div className="auth-panel">
         <div className="auth-panel-brand">
-          <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span className="logo-text">Signal360</span>
         </div>
         <div>
           <h2>Signal-based demand generation for revenue teams</h2>
           <p className="lead">
-            Turn buyer intent into pipeline. OpenSignal finds accounts showing buying signals, personalizes
+            Turn buyer intent into pipeline. Signal360 finds accounts showing buying signals, personalizes
             outreach, and measures the outcomes that matter.
           </p>
         </div>

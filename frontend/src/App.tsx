@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import Landing from "./pages/Landing";
+import { useAuth } from "./context/AuthContext";
+import Spinner from "./components/Spinner";
 import Analytics from "./pages/Analytics";
 import AuthCallback from "./pages/AuthCallback";
 import CampaignDetail from "./pages/CampaignDetail";
@@ -20,9 +23,25 @@ import Signals from "./pages/Signals";
 import Settings from "./pages/Settings";
 import CampaignBuilder from "./pages/CampaignBuilder";
 
+function PublicHome() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="page-loading">
+        <Spinner />
+      </div>
+    );
+  }
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Landing />;
+}
+
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<PublicHome />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -32,7 +51,6 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/signals" element={<Signals />} />
@@ -48,7 +66,7 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

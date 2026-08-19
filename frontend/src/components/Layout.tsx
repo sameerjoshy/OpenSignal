@@ -80,7 +80,7 @@ export default function Layout() {
       ? "Account details"
       : location.pathname.startsWith("/campaigns/")
         ? "Campaign details"
-        : "OpenSignal");
+        : "Signal360");
 
   const cmdItems = useMemo(() => {
     const nav = NAV_GROUPS.flatMap((g) => g.items.map((item) => ({ ...item, hint: "" })));
@@ -210,8 +210,8 @@ export default function Layout() {
       <div className={`sidebar-backdrop${drawerOpen ? " show" : ""}`} onClick={() => setDrawerOpen(false)} />
       <aside className={`sidebar${drawerOpen ? " drawer-open" : ""}`}>
         <div className="sidebar-logo">
-          <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span className="logo-text">Signal360</span>
         </div>
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((group) => (

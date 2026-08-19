@@ -131,7 +131,7 @@ export default function LearningPage() {
           </div>
           <div className="card-body">
             <p className="muted-note">
-              OpenSignal learns from every signal, email, and reply. Use these insights to prioritize Tier-1
+              Signal360 learns from every signal, email, and reply. Use these insights to prioritize Tier-1
               accounts, time your sends, and double down on what converts.
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function LearningPage() {
             </>
           ) : (
             <p className="muted-note">
-              Send a Friday wrap-up of your signals, pipeline value, and what OpenSignal learned to your inbox.
+              Send a Friday wrap-up of your signals, pipeline value, and what Signal360 learned to your inbox.
             </p>
           )}
         </div>

@@ -86,7 +86,7 @@ export default function OutcomesPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Outcomes</h1>
-          <p className="page-desc">The business value OpenSignal is driving — ROI, pipeline and time saved.</p>
+          <p className="page-desc">The business value Signal360 is driving — ROI, pipeline and time saved.</p>
         </div>
         <div className="page-actions">
           <button className="btn btn-secondary btn-sm" onClick={shareLink} disabled={sharing} title="Copy a 7-day read-only link for stakeholders">

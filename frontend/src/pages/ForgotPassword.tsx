@@ -27,8 +27,8 @@ export default function ForgotPassword() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span className="logo-text">Signal360</span>
         </div>
         <h1 className="auth-title">Reset password</h1>
         <p className="auth-sub">Enter your email to receive a reset link</p>

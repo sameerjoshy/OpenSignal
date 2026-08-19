@@ -42,7 +42,7 @@ export default function SharedOutcomes() {
     <div className="stack" style={{ maxWidth: 980, margin: "0 auto", padding: "2rem 1rem" }}>
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">OpenSignal outcomes — shared by {data?.shared_by ?? "a teammate"}</h2>
+          <h2 className="card-title">Signal360 outcomes — shared by {data?.shared_by ?? "a teammate"}</h2>
           <span className="muted">Read-only view</span>
         </div>
         <div className="card-body">

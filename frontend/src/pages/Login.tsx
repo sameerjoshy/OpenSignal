@@ -32,8 +32,8 @@ export default function Login() {
     <AuthShell>
       <div className="auth-card">
         <div className="brand">
-          <span className="logo-mark">◤</span>
-          <span>OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span>Signal360</span>
         </div>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-sub">Sign in to your signal-based demand engine</p>
@@ -80,7 +80,7 @@ export default function Login() {
         </form>
 
         <p className="auth-alt">
-          New to OpenSignal? <Link to="/signup" className="link">Create an account</Link>
+          New to Signal360? <Link to="/signup" className="link">Create an account</Link>
         </p>
       </div>
     </AuthShell>

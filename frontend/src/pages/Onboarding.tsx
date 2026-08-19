@@ -133,8 +133,8 @@ export default function Onboarding() {
     <div className="onboarding">
       <div className="onboarding-header">
         <div className="auth-logo">
-          <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span className="logo-text">Signal360</span>
         </div>
       </div>
 
@@ -227,7 +227,7 @@ export default function Onboarding() {
           <div className="onboarding-body">
             <h2>You&apos;re ready</h2>
             <p className="muted">
-              OpenSignal will watch your connected data sources for buying intent, score target accounts, and help you
+              Signal360 will watch your connected data sources for buying intent, score target accounts, and help you
               launch personalized outreach campaigns.
             </p>
             <ul className="check-list">

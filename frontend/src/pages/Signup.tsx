@@ -37,8 +37,8 @@ export default function Signup() {
     <AuthShell>
       <div className="auth-card">
         <div className="brand">
-          <span className="logo-mark">◤</span>
-          <span>OpenSignal</span>
+          <img className="app-logo" src="/logo.png" alt="Signal360" width="26" height="26" />
+          <span>Signal360</span>
         </div>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-sub">Start capturing intent signals today</p>
