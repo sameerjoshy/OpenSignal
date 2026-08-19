@@ -59,6 +59,10 @@ async def send_weekly_digest(db: AsyncSession, user: User, provider: str = "mail
     db.add(message)
     await db.commit()
     await db.refresh(message)
-    await send_message(db, user, message, provider=provider)
+    try:
+        await send_message(db, user, message, provider=provider)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Weekly digest send failed for %s: %s", user.email, exc)
+        return {"ok": False, "message": "Digest could not be sent. Check your email provider setup."}
     logger.info("Weekly digest sent to %s", user.email)
     return {"ok": True, "message": "Weekly digest sent to your inbox."}
