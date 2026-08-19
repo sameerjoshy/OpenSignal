@@ -1515,3 +1515,53 @@ h4 {
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
+
+/* ---------------------------------------------------------------- Intent rows */
+.intent-row {
+  position: relative;
+  overflow: hidden;
+}
+.intent-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.intent-high .intent-rail {
+  background: #ef4444;
+}
+.intent-medium .intent-rail {
+  background: #f59e0b;
+}
+.intent-low .intent-rail {
+  background: #9ca3af;
+}
+.intent-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.intent-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.intent-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.intent-dot-high {
+  background: #ef4444;
+}
+.intent-dot-medium {
+  background: #f59e0b;
+}
+.intent-dot-low {
+  background: #9ca3af;
+}

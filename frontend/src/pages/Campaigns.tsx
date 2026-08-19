@@ -1,12 +1,46 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 import { useCampaigns } from "../hooks/useCampaigns";
 import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
 import { StatusBadge } from "../components/Badges";
+import { useToast } from "../components/Toast";
 import { formatDate, formatNumber } from "../utils/format";
 
 export default function Campaigns() {
-  const { campaigns, loading, error } = useCampaigns();
+  const { campaigns, loading, error, refresh } = useCampaigns();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [quickName, setQuickName] = useState("");
+  const [quickEmails, setQuickEmails] = useState("");
+  const [quickBusy, setQuickBusy] = useState(false);
+
+  async function quickLaunch() {
+    const emails = quickEmails
+      .split(/[\s,;]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.includes("@"));
+    if (emails.length === 0) {
+      toast("Paste at least one email address", "error");
+      return;
+    }
+    setQuickBusy(true);
+    try {
+      const created = await api.post<{ id: string }>("/api/v1/campaigns", {
+        name: quickName.trim() || `Quick launch (${emails.length} targets)`,
+      });
+      await api.post(`/api/v1/campaigns/${created.id}/import-emails`, { emails });
+      await api.post(`/api/v1/campaigns/${created.id}/run`);
+      toast("Campaign launched — detection running in the background", "success");
+      void refresh();
+      navigate(`/campaigns/${created.id}`);
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setQuickBusy(false);
+    }
+  }
 
   return (
     <div className="stack">
@@ -15,6 +49,39 @@ export default function Campaigns() {
         <Link to="/campaigns/new" className="btn btn-primary">
           + New campaign
         </Link>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">🚀 One-click launch</h2>
+        </div>
+        <div className="card-body">
+          <div className="stack">
+            <div className="action-bar">
+              <input
+                className="input"
+                placeholder="Campaign name (optional)"
+                value={quickName}
+                onChange={(event) => setQuickName(event.target.value)}
+              />
+            </div>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder={"Paste prospect emails, one per line or comma-separated, e.g.\n  john@acme.com, jane@globex.io"}
+              value={quickEmails}
+              onChange={(event) => setQuickEmails(event.target.value)}
+            />
+            <div className="action-bar">
+              <button className="btn btn-primary" onClick={() => void quickLaunch()} disabled={quickBusy}>
+                {quickBusy ? "Launching…" : "Launch campaign"}
+              </button>
+              <span className="muted">
+                Creates the campaign, imports targets, and starts AI detection + scoring automatically.
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

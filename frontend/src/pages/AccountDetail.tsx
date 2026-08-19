@@ -8,6 +8,15 @@ import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
 import type { Account, Signal } from "../types";
 
+const HIGH_INTENT = new Set(["job_change", "funding", "acquisition", "key_decision_maker"]);
+const MEDIUM_INTENT = new Set(["tech_stack", "web_traffic", "product_launch", "leadership", "major_event", "website_intent"]);
+
+function intentOf(type: string): { level: "high" | "medium" | "low"; label: string } {
+  if (HIGH_INTENT.has(type)) return { level: "high", label: "High intent" };
+  if (MEDIUM_INTENT.has(type)) return { level: "medium", label: "Medium intent" };
+  return { level: "low", label: "Low intent" };
+}
+
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -115,27 +124,37 @@ export default function AccountDetail() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Signals ({signals.length})</h2>
+          <h2 className="card-title">Buying signals ({signals.length})</h2>
           <span className="muted">Updated {formatDateTime(account.updated_at)}</span>
         </div>
         <div className="card-body">
+          <div className="intent-legend">
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-high" /> High intent — ready to engage</span>
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-medium" /> Medium intent — watch closely</span>
+            <span className="intent-legend-item"><span className="intent-dot intent-dot-low" /> Low intent — nurture</span>
+          </div>
           {signals.length === 0 ? (
             <EmptyState title="No signals for this account" description="Signals will appear when intent is detected." />
           ) : (
             <ul className="signal-list">
-              {signals.map((signal) => (
-                <li key={signal.id} className="signal-row">
-                  <div className="signal-main">
-                    <div className="signal-title">{signal.title}</div>
-                    {signal.description && <div className="signal-meta">{signal.description}</div>}
-                  </div>
-                  <div className="signal-badges">
-                    <SourceBadge source={signal.source} />
-                    <SignalTypeBadge type={signal.signal_type} />
-                  </div>
-                  <span className="signal-time">{timeAgo(signal.detected_at)}</span>
-                </li>
-              ))}
+              {signals.map((signal) => {
+                const intent = intentOf(signal.signal_type);
+                return (
+                  <li key={signal.id} className={`signal-row intent-row intent-${intent.level}`}>
+                    <span className="intent-rail" />
+                    <div className="signal-main">
+                      <div className="signal-title">{signal.title}</div>
+                      {signal.description && <div className="signal-meta">{signal.description}</div>}
+                    </div>
+                    <div className="signal-badges">
+                      <span className={`intent-tag intent-${intent.level === "high" ? 1 : intent.level === "medium" ? 2 : 0}`}>{intent.label}</span>
+                      <SourceBadge source={signal.source} />
+                      <SignalTypeBadge type={signal.signal_type} />
+                    </div>
+                    <span className="signal-time">{timeAgo(signal.detected_at)}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
