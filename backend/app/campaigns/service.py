@@ -155,8 +155,11 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
     return result
 
 
-def extract_email_list(text: str) -> list[str]:
-    return extract_emails(text)
+def extract_email_list(text_or_emails: str | list[str]) -> list[str]:
+    """Normalize either pasted text or an already-split email list into unique addresses."""
+    if isinstance(text_or_emails, list):
+        return extract_emails("\n".join(e for e in text_or_emails if e))
+    return extract_emails(text_or_emails)
 
 
 def extract_email_list_from_file(content: bytes, filename: str) -> list[str]:

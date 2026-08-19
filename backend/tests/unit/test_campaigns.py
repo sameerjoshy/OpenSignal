@@ -1,5 +1,32 @@
 from tests.conftest import auth_headers
 
+from app.campaigns.importer import extract_emails, parse_email_file
+from app.campaigns.service import extract_email_list
+
+
+def test_extract_emails_from_text():
+    text = "Contact john.doe@acme.com or JANE@Acme.COM, plus support@acme.co.uk today."
+    emails = extract_emails(text)
+    assert "john.doe@acme.com" in emails
+    assert "jane@acme.com" in emails
+    assert "support@acme.co.uk" in emails
+    assert len(emails) == 3  # dedup + lowercase
+
+
+def test_extract_email_list_accepts_list_and_text():
+    assert extract_email_list(["a@b.com", "A@B.COM", "no email"]) == ["a@b.com"]
+    assert extract_email_list("x@y.io, z@w.org") == ["x@y.io", "z@w.org"]
+    assert extract_email_list("") == []
+
+
+def test_parse_email_file_csv_text():
+    data = b"Name,Email\nAlice,alice@example.com\nBob,bob@example.com\n"
+    assert parse_email_file(data, "list.csv") == ["alice@example.com", "bob@example.com"]
+    assert parse_email_file(b"plain@text.com,another@mail.org", "notes.txt") == [
+        "plain@text.com",
+        "another@mail.org",
+    ]
+
 
 async def _create_campaign(client, token, name="Tier 1 Account-Based"):
     resp = await client.post(
