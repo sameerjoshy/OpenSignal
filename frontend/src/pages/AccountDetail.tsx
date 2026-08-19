@@ -8,6 +8,14 @@ import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
 import type { Account, AccountIntelligence, Signal } from "../types";
 
+interface ApolloContact {
+  name?: string | null;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+}
+
 const HIGH_INTENT = new Set(["job_change", "funding", "acquisition", "key_decision_maker"]);
 const MEDIUM_INTENT = new Set(["tech_stack", "web_traffic", "product_launch", "leadership", "major_event", "website_intent"]);
 
@@ -23,6 +31,8 @@ export default function AccountDetail() {
   const [account, setAccount] = useState<Account | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [intel, setIntel] = useState<AccountIntelligence | null>(null);
+  const [contacts, setContacts] = useState<ApolloContact[] | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [scoring, setScoring] = useState(false);
 
@@ -64,6 +74,18 @@ export default function AccountDetail() {
       toast((err as Error).message, "error");
     } finally {
       setScoring(false);
+    }
+  }
+
+  async function findContacts() {
+    if (!account?.company_name) return;
+    setContactsLoading(true);
+    try {
+      setContacts(await api.get<ApolloContact[]>(`/api/v1/contacts/search?company=${encodeURIComponent(account.company_name)}&limit=5`));
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setContactsLoading(false);
     }
   }
 
@@ -171,6 +193,27 @@ export default function AccountDetail() {
               </div>
               <span className="signal-time">{best.replied_at ? `Replied ${timeAgo(best.replied_at)}` : best.opened_at ? `Opened ${timeAgo(best.opened_at)}` : `Sent ${timeAgo(best.sent_at ?? best.created_at)}`}</span>
             </div>
+          )}
+
+          <div className="action-bar" style={{ margin: "1rem 0 0.5rem" }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => void findContacts()} disabled={contactsLoading}>
+              {contactsLoading ? "Searching…" : "Find decision-makers"}
+            </button>
+            {contacts !== null && <span className="muted">Apollo People Search</span>}
+          </div>
+          {contacts !== null && contacts.length > 0 && (
+            <div className="intent-legend" style={{ marginBottom: "0.75rem" }}>
+              {contacts.map((c, i) => (
+                <span key={i} className="intent-legend-item">
+                  {c.name || c.email || c.title}
+                  {c.title ? ` — ${c.title}` : ""}
+                  {c.email ? ` · ${c.email}` : ""}
+                </span>
+              ))}
+            </div>
+          )}
+          {contacts !== null && contacts.length === 0 && (
+            <p className="muted" style={{ marginTop: "0.5rem" }}>No decision-makers found. Upgrade Apollo plan or check the company name.</p>
           )}
 
           {intel && intel.campaigns.length > 0 && (
