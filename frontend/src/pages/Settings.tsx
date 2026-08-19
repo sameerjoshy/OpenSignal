@@ -8,6 +8,23 @@ import type { EmailTemplate, ServiceStatus } from "../types";
 
 type Tab = "services" | "templates" | "account" | "quota";
 
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const { toast } = useToast();
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copied to clipboard", "success");
+    } catch {
+      toast("Copy failed", "error");
+    }
+  }
+  return (
+    <button className="btn btn-ghost btn-sm" onClick={() => void copy()} title={`Copy ${label.toLowerCase()}`}>
+      ⧉ {label}
+    </button>
+  );
+}
+
 const SERVICE_FIELDS: Record<string, { key: string; label: string; placeholder: string; secret?: boolean; multiline?: boolean; target: "api_key" | string }[]> = {
   apollo: [{ key: "api_key", label: "Apollo API key", placeholder: "apollo-…", secret: true, target: "api_key" }],
   hunter: [{ key: "api_key", label: "Hunter API key", placeholder: "hunter-…", secret: true, target: "api_key" }],
@@ -194,6 +211,12 @@ export default function Settings() {
 
       {tab === "services" && (
         <div className="stack">
+          <div className="page-head" style={{ marginBottom: 8 }}>
+            <div>
+              <h1 className="page-title">Connected services</h1>
+              <p className="page-desc">Wire up your data sources, sending infrastructure and CRM.</p>
+            </div>
+          </div>
           {loadingServices ? (
             <div className="page-loading">
               <Spinner />
@@ -296,7 +319,10 @@ export default function Settings() {
             </div>
             <div className="field">
               <label className="label">Email</label>
-              <input className="input" value={user?.email || ""} disabled />
+              <div className="action-bar">
+                <input className="input" value={user?.email || ""} disabled />
+                <CopyButton text={user?.email || ""} label="Copy" />
+              </div>
             </div>
             <div className="field">
               <label className="label">Plan</label>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AuthShell from "../components/AuthShell";
 
 export default function Signup() {
   const { signUp } = useAuth();
@@ -33,11 +34,11 @@ export default function Signup() {
   }
 
   return (
-    <div className="auth-page">
+    <AuthShell>
       <div className="auth-card">
-        <div className="auth-logo">
+        <div className="brand">
           <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <span>OpenSignal</span>
         </div>
         <h1 className="auth-title">Create your account</h1>
         <p className="auth-sub">Start capturing intent signals today</p>
@@ -98,6 +99,6 @@ export default function Signup() {
           Already have an account? <Link to="/login" className="link">Sign in</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

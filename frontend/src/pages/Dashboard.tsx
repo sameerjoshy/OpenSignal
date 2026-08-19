@@ -5,6 +5,7 @@ import MetricCard from "../components/MetricCard";
 import Skeleton from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
+import { AreaChart, FunnelBars, MiniBars } from "../components/charts";
 import { useLiveMetrics } from "../hooks/useLiveMetrics";
 import { useToast } from "../components/Toast";
 import { timeAgo, formatCurrency } from "../utils/format";
@@ -92,11 +93,14 @@ export default function Dashboard() {
     return <EmptyState title="No data yet" description="Connect sources and start a campaign to see insights." />;
   }
 
-  const maxWeekly = Math.max(...analytics.weekly_activity.map((m) => m.value), 1);
-  const maxFunnel = Math.max(...analytics.funnel.map((f) => f.value), 1);
-
   return (
     <div className="stack">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-desc">Your signal intelligence pipeline — live and at a glance.</p>
+        </div>
+      </div>
       <div className="metric-grid">
         <MetricCard label="Signals this week" value={analytics.signals_this_week} icon="◎" accent="indigo" />
         <MetricCard label="Target accounts" value={analytics.total_accounts} icon="◈" accent="blue" />
@@ -213,37 +217,20 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Weekly activity</h2>
+            <div className="card-sub">Signals captured per week</div>
           </div>
           <div className="card-body">
-            <div className="bar-chart">
-              {analytics.weekly_activity.map((point) => (
-                <div key={point.label} className="bar-item" title={`${point.label}: ${point.value}`}>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ height: `${Math.max((point.value / maxWeekly) * 100, 3)}%` }} />
-                  </div>
-                  <span className="bar-label">{point.label}</span>
-                </div>
-              ))}
-            </div>
+            <AreaChart data={analytics.weekly_activity} height={190} />
           </div>
         </div>
 
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Engagement funnel</h2>
+            <div className="card-sub">Conversion vs. previous stage</div>
           </div>
           <div className="card-body">
-            <div className="funnel">
-              {analytics.funnel.map((step) => (
-                <div key={step.label} className="funnel-step">
-                  <div className="funnel-label">{step.label}</div>
-                  <div className="funnel-track">
-                    <div className="funnel-bar" style={{ width: `${(step.value / maxFunnel) * 100}%` }} />
-                  </div>
-                  <div className="funnel-value">{step.value}</div>
-                </div>
-              ))}
-            </div>
+            <FunnelBars data={analytics.funnel} />
           </div>
         </div>
       </div>
@@ -341,14 +328,7 @@ export default function Dashboard() {
             <h2 className="card-title">Top signal sources</h2>
           </div>
           <div className="card-body">
-            <ul className="source-list">
-              {analytics.top_sources.map((source) => (
-                <li key={source.label} className="source-row">
-                  <span className="source-name">{source.label}</span>
-                  <span className="source-count">{source.value}</span>
-                </li>
-              ))}
-            </ul>
+            <MiniBars data={analytics.top_sources} />
           </div>
         </div>
 
@@ -357,14 +337,7 @@ export default function Dashboard() {
             <h2 className="card-title">Accounts by tier</h2>
           </div>
           <div className="card-body">
-            <ul className="source-list">
-              {analytics.signals_by_tier.map((tier) => (
-                <li key={tier.label} className="source-row">
-                  <span className="source-name">{tier.label}</span>
-                  <span className="source-count">{tier.value}</span>
-                </li>
-              ))}
-            </ul>
+            <MiniBars data={analytics.signals_by_tier} />
           </div>
         </div>
       </div>

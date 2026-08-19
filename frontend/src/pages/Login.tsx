@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AuthShell from "../components/AuthShell";
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -28,11 +29,11 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page">
+    <AuthShell>
       <div className="auth-card">
-        <div className="auth-logo">
+        <div className="brand">
           <span className="logo-mark">◤</span>
-          <span className="logo-text">OpenSignal</span>
+          <span>OpenSignal</span>
         </div>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-sub">Sign in to your signal-based demand engine</p>
@@ -82,6 +83,6 @@ export default function Login() {
           New to OpenSignal? <Link to="/signup" className="link">Create an account</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
