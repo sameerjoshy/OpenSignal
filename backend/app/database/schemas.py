@@ -172,6 +172,8 @@ class CampaignOut(ORMModel):
     tier_filters: dict[str, Any] | None = None
     channels: dict[str, Any] | None = None
     cadence: dict[str, Any] | None = None
+    last_run_at: datetime | None = None
+    run_log: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -182,6 +184,8 @@ class CampaignDetailOut(CampaignOut):
     reply_count: int = 0
     open_count: int = 0
     click_count: int = 0
+    last_run_at: datetime | None = None
+    run_log: str | None = None
 
 
 class CampaignImportIn(BaseModel):
@@ -319,3 +323,53 @@ class AnalyticsOut(BaseModel):
     signals_by_tier: list[MetricPoint]
     funnel: list[FunnelStep]
     weekly_activity: list[MetricPoint]
+
+
+# ---------------------------------------------------------------- Outcomes
+class OutcomesOut(BaseModel):
+    pipeline_value: float
+    pipeline_by_tier: list[MetricPoint]
+    accounts_scored: int
+    signals_detected: int
+    deals_estimate: int
+    time_saved_hours: float
+    labor_value: float
+    reply_rate: float
+    open_rate: float
+    click_rate: float
+    industry_reply_rate: float
+    engagement_lift_pct: float
+    cost_per_meeting: float
+    monthly_forecast: float
+    forecast_growth_pct: float
+    note: str = ""
+
+
+class InsightItem(BaseModel):
+    label: str
+    detail: str
+    value: str
+
+
+class LearningOut(BaseModel):
+    top_attributes: list[InsightItem]
+    signal_performance: list[InsightItem]
+    email_tactics: list[InsightItem]
+    recommendations: list[InsightItem]
+
+
+# ---------------------------------------------------------------- Replies
+class EmailReplyOut(BaseModel):
+    id: uuid.UUID
+    from_email: str
+    subject: str | None = None
+    body: str
+    classification: str
+    confidence: float | None = None
+    summary: str | None = None
+    suggested_reply: str | None = None
+    auto_reply_sent: bool
+    status: str
+    created_at: datetime
+    company_name: str | None = None
+    original_subject: str | None = None

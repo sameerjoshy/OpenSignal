@@ -70,6 +70,8 @@ export interface Campaign {
   tier_filters?: Record<string, unknown> | null;
   channels?: Record<string, unknown> | null;
   cadence?: Record<string, unknown> | null;
+  last_run_at?: string | null;
+  run_log?: string | null;
   created_at: string;
   updated_at: string;
   account_count?: number;
@@ -157,4 +159,57 @@ export interface Analytics {
   signals_by_tier: MetricPoint[];
   funnel: FunnelStep[];
   weekly_activity: MetricPoint[];
+}
+
+export interface Outcomes {
+  pipeline_value: number;
+  pipeline_by_tier: MetricPoint[];
+  accounts_scored: number;
+  signals_detected: number;
+  deals_estimate: number;
+  time_saved_hours: number;
+  labor_value: number;
+  reply_rate: number;
+  open_rate: number;
+  click_rate: number;
+  industry_reply_rate: number;
+  engagement_lift_pct: number;
+  cost_per_meeting: number;
+  monthly_forecast: number;
+  forecast_growth_pct: number;
+  note: string;
+}
+
+export interface InsightItem {
+  label: string;
+  detail: string;
+  value: string;
+}
+
+export interface Learning {
+  top_attributes: InsightItem[];
+  signal_performance: InsightItem[];
+  email_tactics: InsightItem[];
+  recommendations: InsightItem[];
+}
+
+export interface EmailReply {
+  id: string;
+  from_email: string;
+  subject?: string | null;
+  body: string;
+  classification: string;
+  confidence?: number | null;
+  summary?: string | null;
+  suggested_reply?: string | null;
+  auto_reply_sent: boolean;
+  status: string;
+  created_at: string;
+  company_name?: string | null;
+  original_subject?: string | null;
+}
+
+export interface LiveEvent {
+  type: string;
+  payload: Record<string, unknown>;
 }

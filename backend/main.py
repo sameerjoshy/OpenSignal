@@ -3,7 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
@@ -12,8 +12,10 @@ from app.auth.routes import router as auth_router
 from app.campaigns.routes import router as campaigns_router
 from app.crm.routes import router as crm_router
 from app.email.routes import router as email_router
+from app.email.reply_routes import router as replies_router
 from app.email.webhooks import router as webhooks_router
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.realtime.manager import manager
 from app.settings.routes import router as settings_router
 from app.signals.routes import router as signals_router
 from app.services.base import ServiceError
@@ -72,6 +74,7 @@ app.include_router(auth_router, prefix=f"{API}/auth", tags=["auth"])
 app.include_router(signals_router, prefix=f"{API}", tags=["signals", "accounts"])
 app.include_router(campaigns_router, prefix=f"{API}", tags=["campaigns"])
 app.include_router(email_router, prefix=f"{API}", tags=["email"])
+app.include_router(replies_router, prefix=f"{API}", tags=["replies"])
 app.include_router(crm_router, prefix=f"{API}", tags=["crm"])
 app.include_router(analytics_router, prefix=f"{API}", tags=["analytics"])
 app.include_router(settings_router, prefix=f"{API}", tags=["settings"])
@@ -81,6 +84,19 @@ app.include_router(webhooks_router, prefix=f"{API}", tags=["webhooks"])
 @app.exception_handler(ServiceError)
 async def service_error_handler(request, exc: ServiceError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+
+@app.websocket("/ws/metrics")
+async def metrics_ws(ws: WebSocket):
+    """Live metrics feed - broadcasts email/score/campaign events to connected clients."""
+    await manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()  # client heartbeats; keep-alive
+    except WebSocketDisconnect:
+        manager.disconnect(ws)
+    except Exception:  # noqa: BLE001
+        manager.disconnect(ws)
 
 
 @app.get("/health", tags=["system"])

@@ -8,6 +8,8 @@ const NAV_ITEMS = [
   { to: "/accounts", label: "Accounts", icon: "◈" },
   { to: "/campaigns", label: "Campaigns", icon: "◉" },
   { to: "/analytics", label: "Analytics", icon: "◔" },
+  { to: "/outcomes", label: "Outcomes", icon: "◈" },
+  { to: "/learning", label: "Learning", icon: "✦" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -17,6 +19,8 @@ const TITLES: Record<string, string> = {
   "/campaigns": "Campaigns",
   "/campaigns/new": "New Campaign",
   "/analytics": "Analytics",
+  "/outcomes": "Outcomes",
+  "/learning": "Learning",
   "/settings": "Settings",
   "/onboarding": "Onboarding",
 };

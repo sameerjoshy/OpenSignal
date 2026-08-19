@@ -166,3 +166,46 @@ class DeepSeekClient:
             subject = template.get("subject") if template else f"Quick question about {account.get('company_name')}"
             body = template.get("body") if template else f"Hi there, I noticed {account.get('company_name')} is active. Would you be open to a quick chat?"
             return {"subject": subject, "body": body, "model_used": "template"}
+
+    async def classify_reply(self, subject: str, body: str) -> dict:
+        """Classify an inbound reply: hot | not_interested | question | out_of_office."""
+        system = (
+            "You classify B2B outbound email replies. Return ONLY JSON with this exact shape:\n"
+            '{"classification": "hot|not_interested|question|out_of_office", "confidence": <0.0-1.0>, '
+            '"summary": "<one short sentence>", "interested": <true|false>}'
+        )
+        user_content = f"SUBJECT: {subject}\n\nREPLY BODY:\n{body[:4000]}"
+        messages = [{"role": "user", "content": user_content}]
+        text = await self._chat(system, messages, max_tokens=300, temperature=0.1)
+        try:
+            result = self._extract_json(text)
+            classification = result.get("classification", "review")
+            if classification not in ("hot", "not_interested", "question", "out_of_office"):
+                classification = "review"
+            return {
+                "classification": classification,
+                "confidence": float(result.get("confidence", 0.6)),
+                "summary": result.get("summary", ""),
+                "interested": bool(result.get("interested", False)),
+            }
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return {"classification": "review", "confidence": 0.5, "summary": "", "interested": False}
+
+    async def suggest_reply(self, original_body: str, reply_body: str) -> str:
+        """Draft a human-sounding reply to a question from a prospect."""
+        system = (
+            "You are a senior sales rep replying to a prospect's question about a B2B service. "
+            "Write a warm, concise, helpful reply that answers the question directly and moves to a "
+            "call/meeting. Max 150 words. Return ONLY the reply text, no preamble."
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"OUR ORIGINAL EMAIL:\n{original_body[:3000]}\n\n"
+                    f"PROSPECT REPLY:\n{reply_body[:3000]}\n\n"
+                    "Write the reply now."
+                ),
+            }
+        ]
+        return (await self._chat(system, messages, max_tokens=400, temperature=0.5)).strip()

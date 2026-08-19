@@ -238,6 +238,44 @@ export default function CampaignDetail() {
 
       <div className="card">
         <div className="card-header">
+          <h2 className="card-title">Run history</h2>
+        </div>
+        <div className="card-body">
+          <div className="timeline">
+            <div className="timeline-item">
+              <span className="timeline-dot" />
+              <div className="timeline-body">
+                <div className="timeline-title">Campaign created</div>
+                <div className="timeline-meta">{formatDateTime(campaign.created_at)}</div>
+              </div>
+            </div>
+            {campaign.last_run_at && (
+              <div className="timeline-item">
+                <span className="timeline-dot" />
+                <div className="timeline-body">
+                  <div className="timeline-title">Last run</div>
+                  <div className="timeline-meta">{formatDateTime(campaign.last_run_at)}</div>
+                  {campaign.run_log && <div className="timeline-detail">{campaign.run_log}</div>}
+                </div>
+              </div>
+            )}
+            {emailStats.some((s) => s.value > 0) && (
+              <div className="timeline-item">
+                <span className="timeline-dot" />
+                <div className="timeline-body">
+                  <div className="timeline-title">Outreach in progress</div>
+                  <div className="timeline-meta">
+                    {emailStats.map((s) => `${s.value} ${s.label.toLowerCase()}`).join(" · ")}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
           <h2 className="card-title">Import email list</h2>
         </div>
         <div className="card-body">
@@ -288,6 +326,7 @@ export default function CampaignDetail() {
               <thead>
                 <tr>
                   <th>Account</th>
+                  <th>Intent</th>
                   <th>Score</th>
                   <th>Tier</th>
                   <th>Status</th>
@@ -305,6 +344,11 @@ export default function CampaignDetail() {
                       ) : (
                         target.account_id
                       )}
+                    </td>
+                    <td>
+                      <span className={`intent-tag intent-${target.tier ?? 0}`}>
+                        {target.tier === 1 ? "Hot" : target.tier === 2 ? "Warm" : target.tier === 3 ? "Nurture" : "Unknown"}
+                      </span>
                     </td>
                     <td>{target.score ?? "—"}</td>
                     <td>

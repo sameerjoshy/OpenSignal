@@ -49,6 +49,17 @@ async def score_account(db: AsyncSession, user: User, account: Account) -> dict:
         model_used=result.get("model_used"),
         rationale=result.get("rationale"),
     )
+    from app.realtime.manager import publish
+
+    await publish(
+        "account_scored",
+        {
+            "account_id": str(account.id),
+            "company_name": account.company_name,
+            "score": result["score"],
+            "tier": result["tier"],
+        },
+    )
     return result
 
 

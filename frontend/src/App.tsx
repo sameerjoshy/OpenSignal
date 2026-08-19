@@ -6,8 +6,10 @@ import AuthCallback from "./pages/AuthCallback";
 import CampaignDetail from "./pages/CampaignDetail";
 import Campaigns from "./pages/Campaigns";
 import ForgotPassword from "./pages/ForgotPassword";
+import Learning from "./pages/Learning";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
+import Outcomes from "./pages/Outcomes";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Accounts from "./pages/Accounts";
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/campaigns/new" element={<CampaignBuilder />} />
           <Route path="/campaigns/:id" element={<CampaignDetail />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/outcomes" element={<Outcomes />} />
+          <Route path="/learning" element={<Learning />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>

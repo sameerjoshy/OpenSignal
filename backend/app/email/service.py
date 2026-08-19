@@ -113,6 +113,9 @@ async def send_message(db: AsyncSession, user: User, message: EmailMessage, prov
     await db.commit()
     await db.refresh(message)
     await _record_event(db, message, "sent")
+    from app.realtime.manager import publish
+
+    await publish("email_sent", {"message_id": str(message.id), "campaign_id": str(message.campaign_id) if message.campaign_id else None, "to_email": message.to_email})
     return provider_id
 
 
@@ -186,6 +189,17 @@ async def apply_event(db: AsyncSession, message: EmailMessage, event_type: str, 
         message.replied_at = now
     await db.commit()
     await _record_event(db, message, event_type, metadata)
+    from app.realtime.manager import publish
+
+    await publish(
+        "email_event",
+        {
+            "message_id": str(message.id),
+            "event_type": event_type,
+            "status": new_status or message.status,
+            "campaign_id": str(message.campaign_id) if message.campaign_id else None,
+        },
+    )
 
 
 async def get_message_by_provider_id(db: AsyncSession, provider_id: str) -> EmailMessage | None:

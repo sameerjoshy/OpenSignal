@@ -7,14 +7,67 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import EmailMessage
+from app.database.models import EmailMessage, User
 from app.database.session import get_db
+from app.email.replies import process_inbound_reply
 from app.email.service import apply_event, get_message_by_provider_id
 from app.services.credentials import resolve_credentials
 from app.services.mailgun import MailgunClient
 
 logger = logging.getLogger("opensignal.email.webhooks")
 router = APIRouter()
+
+
+@router.post("/webhooks/mailgun/inbound")
+async def mailgun_inbound(request: Request, db: AsyncSession = Depends(get_db)):
+    """Inbound route target - receives full replies and runs the reply agent."""
+    form = await request.form()
+    signature = {
+        "timestamp": form.get("signature[timestamp]", ""),
+        "token": form.get("signature[token]", ""),
+        "signature": form.get("signature[signature]", ""),
+    }
+
+    # Best-effort signature verification when the sender signs the request.
+    if signature["signature"]:
+        recipient = form.get("recipient", "") or form.get("To", "")
+        message_id = form.get("Message-Id", "")
+        user_id = await _owner_of(db, message_id, recipient)
+        if user_id:
+            creds = await resolve_credentials(db, user_id, "mailgun")
+            if creds.api_key:
+                client = MailgunClient(creds.api_key, (creds.config or {}).get("domain", "verify"))
+                if not client.verify_webhook(**signature):
+                    raise HTTPException(status_code=403, detail="Invalid signature")
+            else:
+                raise HTTPException(status_code=403, detail="No Mailgun key configured")
+    else:
+        raise HTTPException(status_code=403, detail="Missing signature")
+
+    from_email = (form.get("From") or "").strip()
+    subject = (form.get("Subject") or "").strip() or None
+    body = form.get("stripped-text") or form.get("body-plain") or form.get("body-html") or ""
+    if not from_email or not body:
+        raise HTTPException(status_code=400, detail="Missing From or body")
+
+    user_id = await _owner_of(db, form.get("Message-Id", ""), from_email)
+    if not user_id:
+        # Fall back to resolving the owner from the recipient mailbox address.
+        recipient = (form.get("To") or "").strip()
+        user_id = await _owner_of(db, "", recipient)
+    if not user_id:
+        logger.warning("Inbound reply for unknown owner: %s", from_email)
+        return {"status": "ok", "processed": False}
+
+    from app.database.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            return {"status": "ok", "processed": False}
+        reply = await process_inbound_reply(session, user, from_email=from_email, subject=subject, body=body)
+        logger.info("Inbound reply classified as %s: %s", reply.classification, reply.from_email)
+    return {"status": "ok", "processed": True}
 
 
 @router.post("/webhooks/mailgun")

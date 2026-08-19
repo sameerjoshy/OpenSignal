@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -133,14 +133,25 @@ async def import_campaign_emails_file(
     return schemas.CampaignRunOut(campaign_id=campaign_id, queued=imported, message=f"Imported {imported} email addresses")
 
 
-@router.post("/campaigns/{campaign_id}/run", response_model=dict)
+@router.post("/campaigns/{campaign_id}/run", response_model=schemas.CampaignRunOut)
 async def run_campaign(
     campaign_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> dict:
+) -> schemas.CampaignRunOut:
     campaign = await _get_campaign_or_404(db, user.id, campaign_id)
-    return await campaign_service.run_campaign(db, user, campaign)
+    target_count = (
+        await db.execute(
+            select(func.count()).select_from(CampaignAccount).where(CampaignAccount.campaign_id == campaign.id)
+        )
+    ).scalar_one()
+    background_tasks.add_task(campaign_service.run_campaign_in_background, campaign.id, user.id)
+    return schemas.CampaignRunOut(
+        campaign_id=campaign_id,
+        queued=int(target_count),
+        message=f"Campaign run started in the background for {target_count} target(s). Check back shortly.",
+    )
 
 
 @router.post("/campaigns/{campaign_id}/send", response_model=schemas.CampaignRunOut)

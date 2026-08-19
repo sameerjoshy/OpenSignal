@@ -1,10 +1,11 @@
 """Integration test: campaign create -> import -> detect/score (mocked) -> email generate -> send."""
 
+import asyncio
 import uuid
 
 from sqlalchemy import select
 
-from app.database.models import CampaignAccount, EmailMessage
+from app.database.models import Campaign, CampaignAccount, EmailMessage
 from tests.conftest import auth_headers
 
 
@@ -66,8 +67,18 @@ async def test_full_campaign_flow(client, user_token, db, monkeypatch):
     resp = await client.post(f"/api/v1/campaigns/{campaign['id']}/run", headers=auth_headers(user_token))
     assert resp.status_code == 200
     body = resp.json()
-    assert body["processed"] == 2
-    assert body["scored"] == 2
+    assert body["queued"] == 2
+    assert "background" in body["message"]
+
+    # The run executes as a background task - poll until the run log confirms completion.
+    from app.database.session import AsyncSessionLocal as _Local
+
+    async with _Local() as poll_db:
+        for _ in range(50):
+            refreshed = await poll_db.get(Campaign, uuid.UUID(campaign["id"]))
+            if refreshed and refreshed.run_log and "Processed 2 target(s)" in refreshed.run_log:
+                break
+            await asyncio.sleep(0.1)
 
     emails = await client.get(
         f"/api/v1/campaigns/{campaign['id']}/emails", headers=auth_headers(user_token)

@@ -3,6 +3,15 @@ export function formatNumber(value: number): string {
   return String(value);
 }
 
+export function formatCurrency(value: number): string {
+  const formatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: value >= 1000 ? 0 : 2,
+  });
+  return formatter.format(value);
+}
+
 export function formatDate(value?: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });

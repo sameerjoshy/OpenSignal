@@ -155,6 +155,8 @@ class Campaign(Base):
     tier_filters: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     channels: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     cadence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    run_log: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -248,6 +250,31 @@ class EmailEvent(Base):
     meta: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
 
     email_message: Mapped["EmailMessage"] = relationship(back_populates="events")
+
+
+class EmailReply(Base):
+    """Classification of an inbound reply + optional AI-generated follow-up."""
+
+    __tablename__ = "email_replies"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=_id)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    email_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("email_messages.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    from_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    classification: Mapped[str] = mapped_column(String(32), nullable=False, default="review")
+    confidence: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_reply_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_reply_message_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="classified", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class CrmSync(Base):

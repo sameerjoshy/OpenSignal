@@ -1,5 +1,6 @@
 """Campaign orchestration: create, import targets, route by tier, generate + send email sequence."""
 
+import datetime as dt
 import logging
 
 from sqlalchemy import select
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.campaigns.importer import extract_emails, parse_csv, parse_email_file
 from app.database import crud
 from app.database.models import Campaign, CampaignAccount, User
+from app.database.session import AsyncSessionLocal
 from app.email.service import generate_message_for_account
 from app.services.base import ServiceError
 
@@ -98,7 +100,6 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
     from app.signals import detector, scorer
 
     result = {"processed": 0, "signals": 0, "scored": 0, "generated": 0, "errors": 0}
-
     stmt = select(CampaignAccount).where(CampaignAccount.campaign_id == campaign.id)
     targets = list((await db.execute(stmt)).scalars().all())
 
@@ -147,12 +148,50 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
             result["errors"] += 1
 
     campaign.status = "active"
-    await db.commit()
     result["message"] = (
         f"Processed {result['processed']} target(s): {result['signals']} signals, "
         f"{result['scored']} scored, {result['generated']} emails generated, {result['errors']} errors"
     )
+    campaign.last_run_at = dt.datetime.now(dt.timezone.utc)
+    campaign.run_log = result["message"]
+    await db.commit()
+    from app.realtime.manager import publish
+
+    await publish(
+        "campaign_run",
+        {
+            "campaign_id": str(campaign.id),
+            "processed": result["processed"],
+            "signals": result["signals"],
+            "generated": result["generated"],
+            "errors": result["errors"],
+        },
+    )
     return result
+
+
+async def run_campaign_in_background(campaign_id, user_id) -> dict:
+    """Run a campaign with its own DB session (safe for detached execution)."""
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, user_id)
+            campaign = await db.get(Campaign, campaign_id)
+            if not user or not campaign:
+                logger.warning("Campaign background run skipped: user or campaign missing")
+                return {"processed": 0, "errors": 1, "message": "Campaign or user not found"}
+            return await run_campaign(db, user, campaign)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Campaign background run failed: %s", campaign_id)
+        try:
+            async with AsyncSessionLocal() as db:
+                campaign = await db.get(Campaign, campaign_id)
+                if campaign:
+                    campaign.status = "active"
+                    campaign.run_log = f"Background run failed: {str(exc)[:300]}"
+                    await db.commit()
+        except Exception:  # noqa: BLE001
+            pass
+        return {"processed": 0, "errors": 1, "message": f"Background run failed: {str(exc)[:300]}"}
 
 
 def extract_email_list(text_or_emails: str | list[str]) -> list[str]:
