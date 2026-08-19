@@ -337,6 +337,68 @@ async def build_account_intelligence(db: AsyncSession, user: User, account_id) -
     )
 
 
+# ---------------------------------------------------------------- A/B testing
+async def build_ab_test(db: AsyncSession, user: User, campaign_id) -> schemas.AbTestOut:
+    campaign = await db.get(Campaign, campaign_id)
+    if not campaign or campaign.user_id != user.id:
+        raise ValueError("Campaign not found")
+
+    stats: list[schemas.AbVariantStats] = []
+    for variant in ("A", "B"):
+        sent = await crud.count(db, EmailMessage, user_id=user.id, campaign_id=campaign.id, variant=variant, status="sent")
+        opened = await crud.count(db, EmailMessage, user_id=user.id, campaign_id=campaign.id, variant=variant, status="opened")
+        clicked = await crud.count(db, EmailMessage, user_id=user.id, campaign_id=campaign.id, variant=variant, status="clicked")
+        replied = await crud.count(db, EmailMessage, user_id=user.id, campaign_id=campaign.id, variant=variant, status="replied")
+        stats.append(
+            schemas.AbVariantStats(
+                variant=variant,
+                sent=sent,
+                opened=opened,
+                clicked=clicked,
+                replied=replied,
+                open_rate=round(opened / sent * 100, 1) if sent else 0.0,
+                reply_rate=round(replied / sent * 100, 1) if sent else 0.0,
+            )
+        )
+
+    winner: schemas.AbVariantStats | None = None
+    ab_won = campaign.ab_won
+    note = ""
+    a, b = stats[0], stats[1]
+    if a.sent >= 5 and b.sent >= 5:
+        if b.reply_rate > a.reply_rate and b.reply_rate > 0:
+            winner = b
+            ab_won = "B"
+        elif a.reply_rate > b.reply_rate and a.reply_rate > 0:
+            winner = a
+            ab_won = "A"
+        elif b.open_rate > a.open_rate:
+            winner = b
+            ab_won = "B"
+        if winner and a.sent + b.sent >= 50:
+            note = f"Variant {ab_won} is winning. Keep sending with the winner."
+        elif winner:
+            note = f"Variant {ab_won} is ahead, but it needs ~50 sends per side to be conclusive."
+        else:
+            note = "Both variants are even so far. Keep sending."
+    else:
+        note = "A/B test needs at least 5 sent emails per variant to compare."
+
+    if winner and ab_won != campaign.ab_won:
+        campaign.ab_won = ab_won
+        await db.commit()
+
+    return schemas.AbTestOut(
+        campaign_id=campaign.id,
+        campaign_name=campaign.name,
+        ab_enabled=campaign.ab_enabled,
+        ab_won=ab_won,
+        variants=stats,
+        winner=winner,
+        note=note,
+    )
+
+
 # ---------------------------------------------------------------- Timeline
 async def build_campaign_timeline(db: AsyncSession, user: User, campaign_id) -> schemas.CampaignTimelineOut:
     campaign = await db.get(Campaign, campaign_id)

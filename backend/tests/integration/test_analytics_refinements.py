@@ -200,3 +200,55 @@ async def test_analytics_export_csv(client, user_token):
     text = resp.text
     assert "metric,value" in text
     assert "pipeline_value" in text
+
+
+async def test_campaign_ab_toggle_and_endpoint(client, user_token):
+    resp = await client.post(
+        "/api/v1/campaigns",
+        headers=auth_headers(user_token),
+        json={"name": "AB Test Campaign"},
+    )
+    assert resp.status_code == 201, resp.text
+    campaign_id = resp.json()["id"]
+
+    resp = await client.patch(
+        f"/api/v1/campaigns/{campaign_id}",
+        headers=auth_headers(user_token),
+        json={"ab_enabled": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ab_enabled"] is True
+
+    resp = await client.get(f"/api/v1/campaigns/{campaign_id}/ab-test", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["campaign_id"] == campaign_id
+    assert body["ab_enabled"] is True
+    assert len(body["variants"]) == 2
+    assert {v["variant"] for v in body["variants"]} == {"A", "B"}
+    assert all(v["sent"] == 0 for v in body["variants"])
+
+
+async def test_ab_test_not_found(client):
+    token, _ = await _signup(client)
+    resp = await client.get(f"/api/v1/campaigns/{uuid.uuid4()}/ab-test", headers=auth_headers(token))
+    assert resp.status_code == 404
+
+
+async def test_share_link_create_and_read(client, user_token):
+    resp = await client.post("/api/v1/analytics/share", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    url = resp.json()["url"]
+    assert url.startswith("/api/v1/analytics/shared/")
+
+    shared = await client.get(url)
+    assert shared.status_code == 200
+    body = shared.json()
+    assert "outcomes" in body
+    assert "analytics" in body
+    assert body["outcomes"]["pipeline_value"] >= 0
+
+
+async def test_share_link_invalid(client):
+    resp = await client.get("/api/v1/analytics/shared/badtoken.payload")
+    assert resp.status_code == 400

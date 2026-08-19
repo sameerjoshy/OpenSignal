@@ -10,6 +10,8 @@ from app.auth.dependencies import get_current_user
 from app.signals import detector, scorer
 from app.analytics import service as analytics_service
 from app.services.orchestration import route_campaign
+from app.services.base import ServiceError
+from app.services.credentials import require_key, resolve_credentials
 
 router = APIRouter()
 
@@ -171,3 +173,44 @@ async def create_manual_signal(
         url=payload.url,
     )
     return schemas.SignalOut.model_validate(signal)
+
+
+# ---------------------------------------------------------------- Contacts (Apollo)
+@router.get("/contacts/search")
+async def search_contacts(
+    company: str = Query(..., min_length=2),
+    titles: str | None = Query(None, description="Comma-separated job titles to target"),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Apollo People Search - find decision-makers at a company."""
+    from app.services.apollo import ApolloClient
+
+    creds = await resolve_credentials(db, user.id, "apollo")
+    client = ApolloClient(require_key(creds, "apollo"))
+    try:
+        title_list = [t.strip() for t in titles.split(",") if t.strip()] if titles else None
+        return await client.search_contacts(company, title_list, limit=limit)
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/contacts/enrich")
+async def enrich_contact(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Apollo Enrichment - resolve role + company details from a single email."""
+    from app.services.apollo import ApolloClient
+
+    email = (payload.get("email") or "").strip()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="A valid email is required")
+    creds = await resolve_credentials(db, user.id, "apollo")
+    client = ApolloClient(require_key(creds, "apollo"))
+    try:
+        return await client.enrich_contact(email)
+    except ServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc

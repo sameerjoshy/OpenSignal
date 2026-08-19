@@ -1639,6 +1639,38 @@ h4 {
   overflow: auto;
 }
 
+/* ---------------------------------------------------------------- Print / PDF export */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111 !important;
+  }
+  .sidebar,
+  .topbar,
+  .action-bar,
+  .btn {
+    display: none !important;
+  }
+  .content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .card,
+  .metric-card {
+    border-color: #ccc !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  .metric-card {
+    border: 1px solid #ddd;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 /* ---------------------------------------------------------------- Timeline events */
 .timeline-item.created .timeline-dot {
   background: #6366f1;

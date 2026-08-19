@@ -22,6 +22,7 @@ async def build_personalized_email(
     product_context: str,
     sequence_step: int = 1,
     template: dict | None = None,
+    variant: str = "A",
 ) -> dict:
     """Generate {subject, body} via DeepSeek, personalized to the account."""
     signals = await crud.list_signals(
@@ -47,4 +48,5 @@ async def build_personalized_email(
         product_context=product_context,
         sequence_step=sequence_step,
         template=template,
+        variant=variant,
     )

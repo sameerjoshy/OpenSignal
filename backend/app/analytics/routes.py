@@ -1,7 +1,13 @@
 import io
 import csv
+import hashlib
+import hmac
+import json
+import time
+import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,8 +16,15 @@ from app.auth.dependencies import get_current_user
 from app.database import schemas
 from app.database.models import User
 from app.database.session import get_db
+from config import settings
 
 router = APIRouter()
+
+SHARE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
+
+
+def _sign(payload: str) -> str:
+    return hmac.new(settings.jwt_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
 @router.get("/analytics", response_model=schemas.AnalyticsOut)
@@ -75,3 +88,39 @@ async def export_analytics_csv(
     response = StreamingResponse(iter([buf.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = 'attachment; filename="opensignal_outcomes.csv"'
     return response
+
+
+@router.post("/analytics/share")
+async def create_share_link(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Create a 7-day read-only share link to the outcomes dashboard."""
+    expires = int(time.time()) + SHARE_TTL_SECONDS
+    payload = json.dumps({"uid": str(user.id), "exp": expires}, separators=(",", ":"))
+    token = f"{_sign(payload)}.{payload}"
+    return {"url": f"/api/v1/analytics/shared/{token}", "expires_at": datetime.fromtimestamp(expires, tz=timezone.utc).isoformat()}
+
+
+@router.get("/analytics/shared/{token}")
+async def shared_outcomes(token: str, db: AsyncSession = Depends(get_db)) -> dict:
+    """Read-only outcomes view for stakeholders (no auth)."""
+    try:
+        sig, payload_b64 = token.split(".", 1)
+        payload = json.loads(payload_b64)
+    except (ValueError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid share link")
+    if not hmac.compare_digest(_sign(payload_b64), sig):
+        raise HTTPException(status_code=400, detail="Invalid share link")
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise HTTPException(status_code=410, detail="This share link has expired")
+    try:
+        user_id = uuid.UUID(payload["uid"])
+    except (KeyError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid share link")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    analytics = await analytics_service.build_analytics(db, user)
+    outcomes = await analytics_service.build_outcomes(db, user)
+    return {"shared_by": user.full_name or user.email, "analytics": analytics, "outcomes": outcomes}

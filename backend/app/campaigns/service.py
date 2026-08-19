@@ -108,7 +108,9 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
     max_steps = int(cadence.get("max_steps", 3))
     product_context = campaign.description or "our B2B product"
 
-    for target in targets:
+    ab_enabled = bool(getattr(campaign, "ab_enabled", False))
+
+    for index, target in enumerate(targets):
         try:
             account = await crud.get_account_for_user(db, user.id, target.account_id)
             if not account:
@@ -128,6 +130,7 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
             step_limit = 1 if tier == 3 else max_steps
 
             if channels.get("email", True):
+                variant = "B" if ab_enabled and index % 2 == 1 else "A"
                 message = await generate_message_for_account(
                     db,
                     user=user,
@@ -136,6 +139,7 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
                     product_context=product_context,
                     sequence_step=1,
                     contact_email=target.contact_email,
+                    variant=variant,
                 )
                 if message:
                     result["generated"] += 1

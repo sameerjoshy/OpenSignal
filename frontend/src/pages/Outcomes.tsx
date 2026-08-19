@@ -12,6 +12,7 @@ export default function OutcomesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const { toast } = useToast();
 
   async function load() {
@@ -38,6 +39,20 @@ export default function OutcomesPage() {
       toast((err as Error).message, "error");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function shareLink() {
+    setSharing(true);
+    try {
+      const result = await api.post<{ url: string; expires_at: string }>("/api/v1/analytics/share");
+      const url = `${window.location.origin}${result.url}`;
+      await navigator.clipboard.writeText(url);
+      toast(`Share link copied (expires ${new Date(result.expires_at).toLocaleDateString()})`, "success");
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -129,9 +144,17 @@ export default function OutcomesPage() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">What this means</h2>
-          <button className="btn btn-secondary btn-sm" onClick={() => void exportCsv()} disabled={exporting}>
-            {exporting ? "Exporting…" : "Export CSV"}
-          </button>
+          <div className="action-bar" style={{ margin: 0 }}>
+            <button className="btn btn-secondary btn-sm" onClick={shareLink} disabled={sharing} title="Copy a 7-day read-only link for stakeholders">
+              {sharing ? "Sharing…" : "Share link"}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => window.print()} title="Save as PDF via your browser print dialog">
+              Export PDF
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => void exportCsv()} disabled={exporting}>
+              {exporting ? "Exporting…" : "Export CSV"}
+            </button>
+          </div>
         </div>
         <div className="card-body">
           <p className="muted-note">{data.note}</p>

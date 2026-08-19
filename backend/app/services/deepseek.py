@@ -141,8 +141,15 @@ class DeepSeekClient:
         product_context: str,
         sequence_step: int,
         template: dict | None = None,
+        variant: str = "A",
     ) -> dict:
         highlights = "\n".join(f"- {s.get('title')}" for s in signal_highlights[:3]) or "- (personalize around the company)"
+        variant_rule = ""
+        if variant == "B":
+            variant_rule = (
+                "VARIANT: This is variant B of an A/B test. Write a DIFFERENT angle and subject line "
+                "from variant A - try a curiosity-style subject or a different CTA, keep the same core value proposition.\n"
+            )
         system = (
             "You are a senior demand generation copywriter writing a short, human, high-open-rate "
             "outbound email. It must be personalized to the specific account and reference real signals. "
@@ -155,10 +162,11 @@ class DeepSeekClient:
             f"TARGET COMPANY: {account.get('company_name')} ({account.get('industry') or 'unknown industry'})\n"
             f"RECENT SIGNALS:\n{highlights}\n\n"
             f"SEQUENCE STEP: {sequence_step}\n"
+            f"{variant_rule}"
             + (f"USE THIS TEMPLATE AS A BASE (still personalize):\n{template.get('body', '')}\n" if template else "")
         )
         messages = [{"role": "user", "content": user_content}]
-        text = await self._chat(system, messages, max_tokens=600, temperature=0.7)
+        text = await self._chat(system, messages, max_tokens=600, temperature=0.7 if variant == "B" else 0.5)
         try:
             result = self._extract_json(text)
             return {"subject": result.get("subject", ""), "body": result.get("body", ""), "model_used": self.model_id}

@@ -45,6 +45,7 @@ async def generate_message_for_account(
     product_context: str,
     sequence_step: int = 1,
     contact_email: str | None = None,
+    variant: str = "A",
 ) -> EmailMessage | None:
     """Generate (via DeepSeek) and persist a draft email for a campaign account."""
     to_email = contact_email or await resolve_contact_email(db, user, account)
@@ -53,7 +54,7 @@ async def generate_message_for_account(
         return None
 
     result = await build_personalized_email(
-        db, user, account, campaign, product_context=product_context, sequence_step=sequence_step
+        db, user, account, campaign, product_context=product_context, sequence_step=sequence_step, variant=variant
     )
 
     message = EmailMessage(
@@ -66,6 +67,7 @@ async def generate_message_for_account(
         status="draft",
         sequence_step=sequence_step,
         provider=None,
+        variant=variant,
     )
     db.add(message)
     await db.commit()

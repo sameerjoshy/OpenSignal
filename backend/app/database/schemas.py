@@ -162,6 +162,7 @@ class CampaignUpdate(BaseModel):
     tier_filters: dict[str, Any] | None = None
     channels: dict[str, Any] | None = None
     cadence: dict[str, Any] | None = None
+    ab_enabled: bool | None = None
 
 
 class CampaignOut(ORMModel):
@@ -172,6 +173,8 @@ class CampaignOut(ORMModel):
     tier_filters: dict[str, Any] | None = None
     channels: dict[str, Any] | None = None
     cadence: dict[str, Any] | None = None
+    ab_enabled: bool = False
+    ab_won: str | None = None
     last_run_at: datetime | None = None
     run_log: str | None = None
     created_at: datetime
@@ -264,6 +267,7 @@ class EmailMessageOut(ORMModel):
     to_email: str
     provider: str | None = None
     sequence_step: int
+    variant: str = "A"
     sent_at: datetime | None = None
     opened_at: datetime | None = None
     clicked_at: datetime | None = None
@@ -432,3 +436,24 @@ class DigestPreviewOut(BaseModel):
 class DigestSendOut(BaseModel):
     ok: bool
     message: str
+
+
+# ---------------------------------------------------------------- A/B testing
+class AbVariantStats(BaseModel):
+    variant: str
+    sent: int = 0
+    opened: int = 0
+    clicked: int = 0
+    replied: int = 0
+    open_rate: float = 0.0
+    reply_rate: float = 0.0
+
+
+class AbTestOut(BaseModel):
+    campaign_id: uuid.UUID
+    campaign_name: str
+    ab_enabled: bool
+    ab_won: str | None = None
+    variants: list[AbVariantStats] = []
+    winner: AbVariantStats | None = None
+    note: str = ""

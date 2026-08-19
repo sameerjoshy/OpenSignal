@@ -64,6 +64,18 @@ async def get_campaign(
     return detail
 
 
+@router.get("/campaigns/{campaign_id}/ab-test", response_model=schemas.AbTestOut)
+async def campaign_ab_test(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> schemas.AbTestOut:
+    try:
+        return await analytics_service.build_ab_test(db, user, campaign_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.get("/campaigns/{campaign_id}/timeline", response_model=schemas.CampaignTimelineOut)
 async def campaign_timeline(
     campaign_id: uuid.UUID,

@@ -72,6 +72,8 @@ export interface Campaign {
   cadence?: Record<string, unknown> | null;
   last_run_at?: string | null;
   run_log?: string | null;
+  ab_enabled?: boolean;
+  ab_won?: string | null;
   created_at: string;
   updated_at: string;
   account_count?: number;
@@ -105,6 +107,7 @@ export interface EmailMessage {
   to_email: string;
   provider?: string | null;
   sequence_step: number;
+  variant?: string;
   sent_at?: string | null;
   opened_at?: string | null;
   clicked_at?: string | null;
@@ -268,4 +271,24 @@ export interface DigestPreview {
 export interface DigestSend {
   ok: boolean;
   message: string;
+}
+
+export interface AbVariantStats {
+  variant: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  replied: number;
+  open_rate: number;
+  reply_rate: number;
+}
+
+export interface AbTest {
+  campaign_id: string;
+  campaign_name: string;
+  ab_enabled: boolean;
+  ab_won?: string | null;
+  variants: AbVariantStats[];
+  winner?: AbVariantStats | null;
+  note: string;
 }

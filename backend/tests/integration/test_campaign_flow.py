@@ -51,7 +51,7 @@ async def test_full_campaign_flow(client, user_token, db, monkeypatch):
         await db_.commit()
         return {"score": 82, "tier": 1, "model_used": "test", "rationale": "test"}
 
-    async def fake_generate(db_, user, account, campaign, *, product_context, sequence_step, template=None):
+    async def fake_generate(db_, user, account, campaign, *, product_context, sequence_step, template=None, variant="A"):
         return {"subject": f"Re: {account.company_name}", "body": "Personalized body"}
 
     async def fake_resolve(db_, user, account):
@@ -119,7 +119,7 @@ async def test_send_with_mocked_provider(client, user_token, db, monkeypatch):
         await db_.commit()
         return {"score": 55, "tier": 2, "model_used": "test", "rationale": "test"}
 
-    async def fake_generate(db_, user, account, campaign, *, product_context, sequence_step, template=None):
+    async def fake_generate(db_, user, account, campaign, *, product_context, sequence_step, template=None, variant="A"):
         return {"subject": f"Re: {account.company_name}", "body": "Personalized body"}
 
     async def fake_resolve(db_, user, account):

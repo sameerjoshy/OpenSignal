@@ -6,7 +6,7 @@ import EmptyState from "../components/EmptyState";
 import { StatusBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
-import type { Campaign, CampaignAccount, CampaignTimeline, EmailMessage } from "../types";
+import type { AbTest, Campaign, CampaignAccount, CampaignTimeline, EmailMessage } from "../types";
 
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +15,8 @@ export default function CampaignDetail() {
   const [targets, setTargets] = useState<CampaignAccount[]>([]);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [timeline, setTimeline] = useState<CampaignTimeline | null>(null);
+  const [abTest, setAbTest] = useState<AbTest | null>(null);
+  const [abBusy, setAbBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"run" | "send" | "crm" | "emails" | null>(null);
   const [csvBusy, setCsvBusy] = useState(false);
@@ -34,6 +36,15 @@ export default function CampaignDetail() {
     setTimeline(timelineData);
   }, [id]);
 
+  const loadAbTest = useCallback(async () => {
+    if (!id) return;
+    try {
+      setAbTest(await api.get<AbTest>(`/api/v1/campaigns/${id}/ab-test`));
+    } catch {
+      setAbTest(null);
+    }
+  }, [id]);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -44,6 +55,10 @@ export default function CampaignDetail() {
     }
     void loadData();
   }, [load]);
+
+  useEffect(() => {
+    void loadAbTest();
+  }, [loadAbTest]);
 
   async function runCampaign() {
     if (!id) return;
@@ -94,6 +109,21 @@ export default function CampaignDetail() {
       toast(`Campaign ${status}`, "success");
     } catch (err) {
       toast((err as Error).message, "error");
+    }
+  }
+
+  async function toggleAb() {
+    if (!id) return;
+    setAbBusy(true);
+    try {
+      await api.patch(`/api/v1/campaigns/${id}`, { ab_enabled: !(campaign?.ab_enabled ?? false) });
+      await load();
+      await loadAbTest();
+      toast("A/B testing updated", "success");
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setAbBusy(false);
     }
   }
 
@@ -221,6 +251,9 @@ export default function CampaignDetail() {
         <button className="btn btn-secondary" onClick={sendCampaign} disabled={busy !== null}>
           {busy === "send" ? "Sending…" : "Send emails"}
         </button>
+        <button className="btn btn-ghost" onClick={toggleAb} disabled={abBusy} title="Split emails 50/50 between AI variant A and B, then pick the winner by reply rate">
+          {abBusy ? "…" : campaign.ab_enabled ? "A/B on" : "Enable A/B test"}
+        </button>
         <button className="btn btn-secondary" onClick={() => syncCrm("hubspot")} disabled={busy !== null}>
           Sync HubSpot
         </button>
@@ -297,6 +330,51 @@ export default function CampaignDetail() {
           </div>
         </div>
       </div>
+
+      {abTest && (
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">A/B test</h2>
+            {abTest.winner && <span className={`status-pill status-replied`}>Winner: Variant {abTest.winner.variant}</span>}
+          </div>
+          <div className="card-body">
+            <p className="muted-note" style={{ marginBottom: "0.75rem" }}>{abTest.note}</p>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Variant</th>
+                  <th>Sent</th>
+                  <th>Opened</th>
+                  <th>Clicked</th>
+                  <th>Replied</th>
+                  <th>Open rate</th>
+                  <th>Reply rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {abTest.variants.map((v) => (
+                  <tr key={v.variant}>
+                    <td>
+                      <strong>Variant {v.variant}</strong>
+                      {abTest.ab_won === v.variant && <span className="status-pill status-replied" style={{ marginLeft: 8 }}>✓</span>}
+                    </td>
+                    <td>{v.sent}</td>
+                    <td>{v.opened}</td>
+                    <td>{v.clicked}</td>
+                    <td>{v.replied}</td>
+                    <td>{v.open_rate}%</td>
+                    <td>{v.reply_rate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="muted" style={{ marginTop: "0.5rem" }}>
+              Variant A is your standard personalized angle; variant B is a different subject line and CTA. Enabled on
+              the next run, emails split 50/50.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">
@@ -403,6 +481,7 @@ export default function CampaignDetail() {
                   <th>Subject</th>
                   <th>Status</th>
                   <th>Step</th>
+                  <th>Var</th>
                   <th>Sent</th>
                 </tr>
               </thead>
@@ -416,6 +495,7 @@ export default function CampaignDetail() {
                     </td>
                     <td>{email.status}</td>
                     <td>{email.sequence_step}</td>
+                    <td>{email.variant ?? "A"}</td>
                     <td className="cell-time">{timeAgo(email.sent_at || email.created_at)}</td>
                   </tr>
                 ))}
