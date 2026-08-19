@@ -74,7 +74,13 @@ export default function Layout() {
   const [unread, setUnread] = useState(0);
   const seenRef = useRef(0);
 
-  const title = TITLES[location.pathname] || "OpenSignal";
+  const title =
+    TITLES[location.pathname] ||
+    (location.pathname.startsWith("/accounts/")
+      ? "Account details"
+      : location.pathname.startsWith("/campaigns/")
+        ? "Campaign details"
+        : "OpenSignal");
 
   const cmdItems = useMemo(() => {
     const nav = NAV_GROUPS.flatMap((g) => g.items.map((item) => ({ ...item, hint: "" })));
@@ -136,8 +142,12 @@ export default function Layout() {
   }, [cmdOpen]);
 
   async function handleSignOut() {
-    await signOut();
-    toast("Signed out", "info");
+    try {
+      await signOut();
+      toast("Signed out", "info");
+    } catch {
+      toast("Could not sign out. Check your connection.", "error");
+    }
   }
 
   function openBell() {
@@ -213,7 +223,7 @@ export default function Layout() {
                   to={item.to}
                   className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
                 >
-                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                   {item.label}
                 </NavLink>
               ))}
@@ -235,8 +245,9 @@ export default function Layout() {
               <div className="user-name">{user?.full_name || user?.email}</div>
               <div className="user-plan">{user?.plan} plan</div>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={handleSignOut} title="Sign out">
+            <button className="btn btn-ghost btn-sm signout-btn" onClick={handleSignOut} title="Sign out" aria-label="Sign out">
               ⎋
+              <span className="signout-text">Sign out</span>
             </button>
           </div>
         </div>
@@ -281,7 +292,7 @@ export default function Layout() {
               </div>
             )}
           </div>
-          <button className="theme-toggle" onClick={toggle} title="Toggle dark mode">
+          <button className="theme-toggle" onClick={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
             {theme === "dark" ? "☀" : "☾"}
           </button>
         </header>

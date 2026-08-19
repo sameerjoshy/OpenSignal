@@ -179,12 +179,14 @@ class CampaignOut(ORMModel):
     run_log: str | None = None
     created_at: datetime
     updated_at: datetime
-
-
-class CampaignDetailOut(CampaignOut):
     account_count: int = 0
     sent_count: int = 0
     reply_count: int = 0
+
+
+class CampaignDetailOut(CampaignOut):
+    open_count: int = 0
+    click_count: int = 0
     open_count: int = 0
     click_count: int = 0
     last_run_at: datetime | None = None

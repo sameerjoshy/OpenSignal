@@ -21,10 +21,11 @@ router = APIRouter()
 async def list_accounts(
     limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    tier: int | None = Query(None, ge=1, le=3),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[schemas.AccountOut]:
-    accounts = await crud.list_accounts(db, user.id, limit=limit, offset=offset)
+    accounts = await crud.list_accounts(db, user.id, limit=limit, offset=offset, tier=tier)
     return [schemas.AccountOut.model_validate(a) for a in accounts]
 
 

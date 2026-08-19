@@ -455,6 +455,15 @@ h4 {
   color: var(--danger);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  filter: brightness(1.08);
+}
+
 .btn-sm {
   padding: 5px 10px;
   font-size: 13px;
@@ -546,6 +555,16 @@ h4 {
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
+}
+
+.alert-warning {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ---------------------------------------------------------------- Badges */
@@ -1763,6 +1782,9 @@ h4 {
 [data-theme="dark"] .status-clicked { background: rgba(167, 139, 250, 0.14); border-color: rgba(167, 139, 250, 0.35); color: #c4b5fd; }
 [data-theme="dark"] .status-replied { background: rgba(251, 113, 133, 0.14); border-color: rgba(251, 113, 133, 0.35); color: #fda4af; }
 [data-theme="dark"] .digest-pre { background: var(--surface-2); border-color: var(--border); }
+[data-theme="dark"] .alert-error { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.35); }
+[data-theme="dark"] .alert-warning { background: rgba(245, 158, 11, 0.12); color: #fcd34d; border-color: rgba(245, 158, 11, 0.35); }
+[data-theme="dark"] .alert-info { background: rgba(59, 130, 246, 0.12); color: #93c5fd; border-color: rgba(59, 130, 246, 0.35); }
 
 /* ================================================================ Skeleton loaders */
 .skeleton-block {
@@ -2024,6 +2046,11 @@ select:focus-visible {
 .user-meta { min-width: 0; }
 .user-name { font-size: 12.5px; font-weight: 600; color: #e8ebf7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 .user-plan { font-size: 11px; color: #8d94b5; }
+.signout-btn { margin-left: auto; flex-shrink: 0; }
+.signout-btn .signout-text { margin-left: 4px; }
+@media (max-width: 640px) {
+  .signout-btn .signout-text { display: none; }
+}
 
 /* --- Buttons */
 .btn { transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, box-shadow 0.15s, transform 0.12s; }

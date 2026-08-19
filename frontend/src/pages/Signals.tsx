@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useSignals } from "../hooks/useSignals";
 import Spinner from "../components/Spinner";
@@ -7,9 +8,20 @@ import Modal from "../components/Modal";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { timeAgo } from "../utils/format";
+import type { Account } from "../types";
 
 const SOURCES = ["apollo", "sec_edgar", "newsapi", "ga4", "manual", "hunter"];
-const TYPES = ["company_created", "company_growth", "hiring_spree", "funding_round", "product_launch", "negative_sentiment"];
+const TYPES = [
+  "funding",
+  "key_decision_maker",
+  "website_intent",
+  "major_event",
+  "earnings",
+  "leadership",
+  "product_launch",
+  "news",
+  "job_change",
+];
 
 export default function Signals() {
   const [source, setSource] = useState("");
@@ -22,10 +34,23 @@ export default function Signals() {
   });
   const { toast } = useToast();
   const [manualOpen, setManualOpen] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
   const [manualAccount, setManualAccount] = useState("");
+  const [manualType, setManualType] = useState("product_launch");
   const [manualTitle, setManualTitle] = useState("");
   const [manualDescription, setManualDescription] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!manualOpen || accounts.length > 0) return;
+    setAccountsLoading(true);
+    api
+      .get<Account[]>("/api/v1/accounts?limit=500")
+      .then(setAccounts)
+      .catch(() => setAccounts([]))
+      .finally(() => setAccountsLoading(false));
+  }, [manualOpen, accounts.length]);
 
   async function createManual() {
     setSaving(true);
@@ -35,12 +60,13 @@ export default function Signals() {
         title: manualTitle,
         description: manualDescription || undefined,
         source: "manual",
-        signal_type: "product_launch",
+        signal_type: manualType,
         url: null,
       });
       toast("Signal created", "success");
       setManualOpen(false);
       setManualAccount("");
+      setManualType("product_launch");
       setManualTitle("");
       setManualDescription("");
       await refresh();
@@ -152,17 +178,53 @@ export default function Signals() {
         }
       >
         <div className="field">
-          <label className="label">Account ID</label>
-          <input
-            className="input"
-            value={manualAccount}
-            onChange={(event) => setManualAccount(event.target.value)}
-            placeholder="UUID of the target account"
-          />
+          <label className="label" htmlFor="signal-account">Target account</label>
+          {accountsLoading ? (
+            <div className="input">Loading accounts…</div>
+          ) : accounts.length === 0 ? (
+            <div className="input">
+              No accounts yet —{" "}
+              <Link to="/campaigns/new" className="link" onClick={() => setManualOpen(false)}>
+                create a campaign
+              </Link>{" "}
+              to import targets
+            </div>
+          ) : (
+            <select
+              id="signal-account"
+              className="input select"
+              value={manualAccount}
+              onChange={(event) => setManualAccount(event.target.value)}
+            >
+              <option value="">Select an account…</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.company_name}
+                  {acc.tier ? ` · ${acc.tier === 1 ? "Tier 1" : acc.tier === 2 ? "Tier 2" : "Tier 3"}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="field">
-          <label className="label">Title</label>
+          <label className="label" htmlFor="signal-type">Type</label>
+          <select
+            id="signal-type"
+            className="input select"
+            value={manualType}
+            onChange={(event) => setManualType(event.target.value)}
+          >
+            {TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="signal-title">Title</label>
           <input
+            id="signal-title"
             className="input"
             value={manualTitle}
             onChange={(event) => setManualTitle(event.target.value)}
@@ -170,8 +232,9 @@ export default function Signals() {
           />
         </div>
         <div className="field">
-          <label className="label">Description</label>
+          <label className="label" htmlFor="signal-description">Description</label>
           <textarea
+            id="signal-description"
             className="textarea"
             value={manualDescription}
             onChange={(event) => setManualDescription(event.target.value)}

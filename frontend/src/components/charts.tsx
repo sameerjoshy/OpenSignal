@@ -227,7 +227,8 @@ export function FunnelBars({ data }: { data: Point[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {data.map((d, i) => {
-        const pct = i === 0 ? 100 : Math.round((d.value / data[i - 1].value) * 100);
+        const prev = i === 0 ? d.value : data[i - 1].value;
+        const pct = i === 0 || prev <= 0 ? (d.value > 0 ? 100 : 0) : Math.round((d.value / prev) * 100);
         const share = Math.round((d.value / max) * 100);
         return (
           <div key={`${d.label}-${i}`} className="funnel-step">

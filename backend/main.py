@@ -29,6 +29,7 @@ logger = logging.getLogger("opensignal")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings.guard_insecure()
     if settings.sentry_dsn:
         import sentry_sdk
 

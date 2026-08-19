@@ -10,6 +10,7 @@ import Learning from "./pages/Learning";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import Outcomes from "./pages/Outcomes";
+import ResetPassword from "./pages/ResetPassword";
 import SharedOutcomes from "./pages/SharedOutcomes";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/shared/:token" element={<SharedOutcomes />} />
 

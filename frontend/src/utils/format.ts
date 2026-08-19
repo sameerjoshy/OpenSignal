@@ -12,6 +12,20 @@ export function formatCurrency(value: number): string {
   return formatter.format(value);
 }
 
+export function formatCompactCurrency(value?: number | null): string {
+  if (!value) return "—";
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1e12) return `${sign}$${(value / 1e12).toFixed(1)}T`;
+  if (abs >= 1e9) return `${sign}$${(value / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) {
+    const v = value / 1e6;
+    return `${sign}$${v >= 100 ? Math.round(v) : v.toFixed(1)}M`;
+  }
+  if (abs >= 1e3) return `${sign}$${(value / 1e3).toFixed(1)}k`;
+  return `${sign}$${Math.round(value)}`;
+}
+
 export function formatDate(value?: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });

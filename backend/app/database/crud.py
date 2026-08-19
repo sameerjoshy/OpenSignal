@@ -103,14 +103,14 @@ async def get_account_for_user(db: AsyncSession, user_id: uuid.UUID, account_id:
     return result.scalar_one_or_none()
 
 
-async def list_accounts(db: AsyncSession, user_id: uuid.UUID, limit: int = 200, offset: int = 0) -> list[Account]:
-    result = await db.execute(
-        select(Account)
-        .where(Account.user_id == user_id)
-        .order_by(Account.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+async def list_accounts(
+    db: AsyncSession, user_id: uuid.UUID, limit: int = 200, offset: int = 0, tier: int | None = None
+) -> list[Account]:
+    stmt = select(Account).where(Account.user_id == user_id)
+    if tier is not None:
+        stmt = stmt.where(Account.tier == tier)
+    stmt = stmt.order_by(Account.created_at.desc()).limit(limit).offset(offset)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 

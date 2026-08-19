@@ -21,11 +21,14 @@ async def resolve_credentials(db: AsyncSession, user_id, service: str) -> Servic
     """Prefer the user's stored (encrypted) key, falling back to env-configured globals."""
     cred = await crud.get_credential(db, user_id, service)
     if cred:
+        config = cred.config or {}
         try:
             key = decrypt_value(cred.encrypted_key)
-            return ServiceCredentials(api_key=key, config=cred.config or {}, source="user")
+            return ServiceCredentials(api_key=key, config=config, source="user")
         except ValueError:
-            pass  # fall through to env default
+            # Key can't be decrypted (e.g. never set) but the user config
+            # (GA4 property/service-account JSON, etc.) may still be valid.
+            return ServiceCredentials(api_key="", config=config, source="user")
 
     from app.services.registry import SERVICE_BY_ID
 

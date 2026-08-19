@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useCampaigns } from "../hooks/useCampaigns";
 import { SkeletonList } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
+import ConfirmDialog, { type ConfirmState } from "../components/Confirm";
 import { StatusBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { formatDate, formatNumber } from "../utils/format";
@@ -15,6 +16,7 @@ export default function Campaigns() {
   const [quickName, setQuickName] = useState("");
   const [quickEmails, setQuickEmails] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   async function quickLaunch() {
     const emails = quickEmails
@@ -73,7 +75,18 @@ export default function Campaigns() {
               onChange={(event) => setQuickEmails(event.target.value)}
             />
             <div className="action-bar">
-              <button className="btn btn-primary" onClick={() => void quickLaunch()} disabled={quickBusy}>
+              <button
+                className="btn btn-primary"
+                onClick={() =>
+                  setConfirm({
+                    title: "Launch this campaign?",
+                    message: "This creates the campaign, imports the targets, and immediately starts AI detection and scoring. Emails are generated but not sent until you review.",
+                    confirmLabel: "Launch",
+                    onConfirm: () => void quickLaunch(),
+                  })
+                }
+                disabled={quickBusy}
+              >
                 {quickBusy ? "Launching…" : "Launch campaign"}
               </button>
               <span className="muted">
@@ -137,6 +150,8 @@ export default function Campaigns() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

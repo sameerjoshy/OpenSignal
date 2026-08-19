@@ -5,7 +5,7 @@ import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
 import { SignalTypeBadge, SourceBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
-import { formatDateTime, timeAgo } from "../utils/format";
+import { formatCompactCurrency, formatDateTime, timeAgo } from "../utils/format";
 import type { Account, AccountIntelligence, Signal } from "../types";
 
 interface ApolloContact {
@@ -147,7 +147,7 @@ export default function AccountDetail() {
         </div>
         <div className="metric-card accent-green">
           <div className="metric-label">Revenue</div>
-          <div className="metric-value">{account.revenue ? `$${Math.round(account.revenue / 1e6)}M` : "—"}</div>
+          <div className="metric-value">{formatCompactCurrency(account.revenue)}</div>
         </div>
       </div>
 

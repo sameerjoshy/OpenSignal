@@ -24,7 +24,47 @@ async def list_campaigns(
     result = await db.execute(
         select(Campaign).where(Campaign.user_id == user.id).order_by(Campaign.created_at.desc())
     )
-    return [schemas.CampaignOut.model_validate(c) for c in result.scalars().all()]
+    campaigns = list(result.scalars().all())
+    if not campaigns:
+        return []
+
+    ids = [c.id for c in campaigns]
+    target_counts = dict(
+        (
+            await db.execute(
+                select(CampaignAccount.campaign_id, func.count(CampaignAccount.id))
+                .where(CampaignAccount.campaign_id.in_(ids))
+                .group_by(CampaignAccount.campaign_id)
+            )
+        ).all()
+    )
+    sent_counts = dict(
+        (
+            await db.execute(
+                select(EmailMessage.campaign_id, func.count(EmailMessage.id))
+                .where(EmailMessage.campaign_id.in_(ids), EmailMessage.status == "sent")
+                .group_by(EmailMessage.campaign_id)
+            )
+        ).all()
+    )
+    reply_counts = dict(
+        (
+            await db.execute(
+                select(EmailMessage.campaign_id, func.count(EmailMessage.id))
+                .where(EmailMessage.campaign_id.in_(ids), EmailMessage.status == "replied")
+                .group_by(EmailMessage.campaign_id)
+            )
+        ).all()
+    )
+
+    out: list[schemas.CampaignOut] = []
+    for c in campaigns:
+        item = schemas.CampaignOut.model_validate(c)
+        item.account_count = int(target_counts.get(c.id, 0))
+        item.sent_count = int(sent_counts.get(c.id, 0))
+        item.reply_count = int(reply_counts.get(c.id, 0))
+        out.append(item)
+    return out
 
 
 @router.post("/campaigns", response_model=schemas.CampaignOut, status_code=status.HTTP_201_CREATED)

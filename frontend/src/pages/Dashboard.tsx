@@ -29,6 +29,22 @@ const LIVE_LABELS: Record<string, string> = {
   reply_classified: "Reply classified",
 };
 
+const EMPTY_ANALYTICS: Analytics = {
+  total_signals: 0,
+  total_accounts: 0,
+  total_campaigns: 0,
+  active_campaigns: 0,
+  signals_this_week: 0,
+  emails_sent: 0,
+  emails_opened: 0,
+  emails_clicked: 0,
+  emails_replied: 0,
+  top_sources: [],
+  signals_by_tier: [],
+  funnel: [],
+  weekly_activity: [],
+};
+
 export default function Dashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [outcomes, setOutcomes] = useState<Outcomes | null>(null);
@@ -38,31 +54,37 @@ export default function Dashboard() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [followUpSending, setFollowUpSending] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { events, connected } = useLiveMetrics();
   const { toast } = useToast();
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
-      try {
-        const [analyticsData, outcomesData, learningData, signalsData, repliesData, followUpsData] = await Promise.all([
-          api.get<Analytics>("/api/v1/analytics"),
-          api.get<Outcomes>("/api/v1/analytics/outcomes"),
-          api.get<Learning>("/api/v1/analytics/learning"),
-          api.get<Signal[]>("/api/v1/signals?limit=8"),
-          api.get<EmailReply[]>("/api/v1/replies"),
-          api.get<FollowUp[]>("/api/v1/follow-ups").catch(() => []),
-        ]);
-        setAnalytics(analyticsData);
-        setOutcomes(outcomesData);
-        setLearning(learningData);
-        setRecentSignals(signalsData);
-        setReplies(repliesData);
-        setFollowUps(followUpsData);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(true);
+      const results = await Promise.allSettled([
+        api.get<Analytics>("/api/v1/analytics"),
+        api.get<Outcomes>("/api/v1/analytics/outcomes"),
+        api.get<Learning>("/api/v1/analytics/learning"),
+        api.get<Signal[]>("/api/v1/signals?limit=8"),
+        api.get<EmailReply[]>("/api/v1/replies"),
+        api.get<FollowUp[]>("/api/v1/follow-ups"),
+      ]);
+      if (cancelled) return;
+      if (results[0].status === "fulfilled") setAnalytics(results[0].value);
+      if (results[1].status === "fulfilled") setOutcomes(results[1].value);
+      if (results[2].status === "fulfilled") setLearning(results[2].value);
+      if (results[3].status === "fulfilled") setRecentSignals(results[3].value);
+      if (results[4].status === "fulfilled") setReplies(results[4].value);
+      if (results[5].status === "fulfilled") setFollowUps(results[5].value);
+      const failed = results.filter((r) => r.status === "rejected").length;
+      setError(failed > 0 ? `Some data couldn't load (${failed} section${failed > 1 ? "s" : ""}). Retrying may help.` : null);
+      setLoading(false);
     }
     void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function sendFollowUp(messageId: string) {
@@ -85,12 +107,10 @@ export default function Dashboard() {
 
   const recommendations = useMemo(() => (learning?.recommendations ?? []).slice(0, 4), [learning]);
 
+  const a = analytics ?? EMPTY_ANALYTICS;
+
   if (loading) {
     return <Skeleton variant="page" />;
-  }
-
-  if (!analytics) {
-    return <EmptyState title="No data yet" description="Connect sources and start a campaign to see insights." />;
   }
 
   return (
@@ -100,26 +120,37 @@ export default function Dashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-desc">Your signal intelligence pipeline — live and at a glance.</p>
         </div>
+        <button className="btn btn-secondary" onClick={() => window.location.reload()} title="Refresh dashboard">
+          ↻ Refresh
+        </button>
       </div>
+      {error && (
+        <div className="alert alert-warning" role="alert">
+          <span>{error}</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      )}
       <div className="metric-grid">
-        <MetricCard label="Signals this week" value={analytics.signals_this_week} icon="◎" accent="indigo" />
-        <MetricCard label="Target accounts" value={analytics.total_accounts} icon="◈" accent="blue" />
-        <MetricCard label="Active campaigns" value={analytics.active_campaigns} icon="◉" accent="amber" />
-        <MetricCard label="Emails sent" value={analytics.emails_sent} icon="✉" accent="green" />
-        <MetricCard label="Replies" value={analytics.emails_replied} icon="↩" accent="rose" />
+        <MetricCard label="Signals this week" value={a.signals_this_week} icon="◎" accent="indigo" />
+        <MetricCard label="Target accounts" value={a.total_accounts} icon="◈" accent="blue" />
+        <MetricCard label="Active campaigns" value={a.active_campaigns} icon="◉" accent="amber" />
+        <MetricCard label="Emails sent" value={a.emails_sent} icon="✉" accent="green" />
+        <MetricCard label="Replies" value={a.emails_replied} icon="↩" accent="rose" />
       </div>
 
       <div className={`live-banner${connected ? " live-on" : ""}`}>
         <span className="live-dot" />
-        <span>{connected ? "Live — streaming account activity" : "Live feed offline"}</span>
+        <span>{connected ? "Live — streaming account activity" : "Live feed offline — reconnecting…"}</span>
         {events.length > 0 && <span className="live-event-count">{events.length} events</span>}
       </div>
 
       <div className="metric-grid">
-        <MetricCard label="Pipeline value" value={formatCurrency(outcomes?.pipeline_value ?? 0)} icon="◉" accent="green" />
-        <MetricCard label="Monthly forecast" value={formatCurrency(outcomes?.monthly_forecast ?? 0)} icon="◍" accent="indigo" />
-        <MetricCard label="Time saved" value={`${outcomes?.time_saved_hours ?? 0}h`} icon="◷" accent="blue" />
-        <MetricCard label="Deals (est.)" value={outcomes?.deals_estimate ?? 0} icon="◈" accent="amber" />
+        <MetricCard label="Pipeline value" value={outcomes ? formatCurrency(outcomes.pipeline_value) : "—"} icon="◉" accent="green" />
+        <MetricCard label="Monthly forecast" value={outcomes ? formatCurrency(outcomes.monthly_forecast) : "—"} icon="◍" accent="indigo" />
+        <MetricCard label="Time saved" value={outcomes ? `${outcomes.time_saved_hours}h` : "—"} icon="◷" accent="blue" />
+        <MetricCard label="Deals (est.)" value={outcomes ? outcomes.deals_estimate : "—"} icon="◈" accent="amber" />
       </div>
 
       <div className="card-grid">
@@ -220,7 +251,7 @@ export default function Dashboard() {
             <div className="card-sub">Signals captured per week</div>
           </div>
           <div className="card-body">
-            <AreaChart data={analytics.weekly_activity} height={190} />
+            <AreaChart data={a.weekly_activity} height={190} />
           </div>
         </div>
 
@@ -230,7 +261,7 @@ export default function Dashboard() {
             <div className="card-sub">Conversion vs. previous stage</div>
           </div>
           <div className="card-body">
-            <FunnelBars data={analytics.funnel} />
+            <FunnelBars data={a.funnel} />
           </div>
         </div>
       </div>
@@ -328,7 +359,7 @@ export default function Dashboard() {
             <h2 className="card-title">Top signal sources</h2>
           </div>
           <div className="card-body">
-            <MiniBars data={analytics.top_sources} />
+            <MiniBars data={a.top_sources} />
           </div>
         </div>
 
@@ -337,7 +368,7 @@ export default function Dashboard() {
             <h2 className="card-title">Accounts by tier</h2>
           </div>
           <div className="card-body">
-            <MiniBars data={analytics.signals_by_tier} />
+            <MiniBars data={a.signals_by_tier} />
           </div>
         </div>
       </div>

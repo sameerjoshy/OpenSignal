@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { SkeletonList } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { TierBadge } from "../components/Badges";
-import { formatDate, formatNumber } from "../utils/format";
+import { formatCompactCurrency, formatDate, formatNumber } from "../utils/format";
 import type { Account } from "../types";
 
 export default function Accounts() {
@@ -75,7 +75,7 @@ export default function Accounts() {
                   <span className="stat-label">Score</span>
                 </div>
                 <div className="stat">
-                  <span className="stat-value">{formatNumber(account.employee_count ?? 0)}</span>
+                  <span className="stat-value">{account.employee_count != null ? formatNumber(account.employee_count) : "—"}</span>
                   <span className="stat-label">Employees</span>
                 </div>
                 <div className="stat">
@@ -85,7 +85,7 @@ export default function Accounts() {
               </div>
               <div className="account-card-footer">
                 <span>Added {formatDate(account.created_at)}</span>
-                {account.revenue ? <span>${formatNumber(account.revenue / 1e6)}M</span> : null}
+                {account.revenue ? <span>{formatCompactCurrency(account.revenue)}</span> : null}
               </div>
             </Link>
           ))}

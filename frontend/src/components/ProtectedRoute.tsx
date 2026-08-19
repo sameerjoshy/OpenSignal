@@ -18,5 +18,14 @@ export default function ProtectedRoute() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  const onboardingDone = localStorage.getItem("onboarding_done") === "1";
+  const isOnboarding = location.pathname === "/onboarding";
+  if (!onboardingDone && !isOnboarding) {
+    return <Navigate to="/onboarding" state={{ from: location }} replace />;
+  }
+  if (onboardingDone && isOnboarding) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <Outlet />;
 }

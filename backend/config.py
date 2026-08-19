@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
 
+    def guard_insecure(self) -> None:
+        """Fail fast in production when security-critical settings are defaults/missing."""
+        if not self.is_production:
+            return
+        if not self.jwt_secret or self.jwt_secret == "change-me":
+            raise RuntimeError("JWT_SECRET must be set to a strong random value in production")
+        if not self.encryption_key:
+            raise RuntimeError("ENCRYPTION_KEY must be set in production (used for credential encryption)")
+
 
 @lru_cache
 def get_settings() -> Settings:

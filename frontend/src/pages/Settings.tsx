@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import Spinner from "../components/Spinner";
 import Modal from "../components/Modal";
+import ConfirmDialog, { type ConfirmState } from "../components/Confirm";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 import type { EmailTemplate, ServiceStatus } from "../types";
@@ -65,6 +66,7 @@ export default function Settings() {
   const [connectTarget, setConnectTarget] = useState<ServiceStatus | null>(null);
   const [connectValues, setConnectValues] = useState<Record<string, string>>({});
   const [connecting, setConnecting] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -242,7 +244,18 @@ export default function Settings() {
                         <button className="btn btn-ghost btn-sm" onClick={() => openConnect(service)}>
                           Reconnect
                         </button>
-                        <button className="btn btn-ghost btn-sm btn-danger-text" onClick={() => handleDisconnect(service)}>
+                        <button
+                          className="btn btn-ghost btn-sm btn-danger-text"
+                          onClick={() =>
+                            setConfirm({
+                              title: `Disconnect ${service.name}?`,
+                              message: `Credentials will be removed and ${service.name} will stop syncing. You can reconnect anytime.`,
+                              confirmLabel: "Disconnect",
+                              danger: true,
+                              onConfirm: () => void handleDisconnect(service),
+                            })
+                          }
+                        >
                           Disconnect
                         </button>
                       </>
@@ -297,7 +310,18 @@ export default function Settings() {
                       <td>{template.sequence_step}</td>
                       <td>{template.is_default ? "Yes" : "—"}</td>
                       <td>
-                        <button className="btn btn-ghost btn-sm btn-danger-text" onClick={() => deleteTemplate(template)}>
+                        <button
+                          className="btn btn-ghost btn-sm btn-danger-text"
+                          onClick={() =>
+                            setConfirm({
+                              title: `Delete template "${template.name}"?`,
+                              message: "This cannot be undone. Campaigns already using it keep their generated emails.",
+                              confirmLabel: "Delete",
+                              danger: true,
+                              onConfirm: () => void deleteTemplate(template),
+                            })
+                          }
+                        >
                           Delete
                         </button>
                       </td>
@@ -445,6 +469,8 @@ export default function Settings() {
           />
         </div>
       </Modal>
+
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

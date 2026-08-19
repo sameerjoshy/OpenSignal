@@ -18,16 +18,24 @@ async def build_analytics(db: AsyncSession, user: User) -> schemas.AnalyticsOut:
     active_campaigns = await crud.count(db, Campaign, user_id=user.id, status="active")
     signals_this_week = await crud.count_signals_since(db, user.id, week_ago)
 
-    # Email metrics by message status
-    emails_sent = await crud.count(db, EmailMessage, user_id=user.id, status="sent")
-    emails_opened = await crud.count(db, EmailMessage, user_id=user.id, status="opened")
-    emails_clicked = await crud.count(db, EmailMessage, user_id=user.id, status="clicked")
-    emails_replied = await crud.count(db, EmailMessage, user_id=user.id, status="replied")
-    emails_delivered = await crud.count(db, EmailMessage, user_id=user.id, status="delivered")
-
-    # Include statuses that imply opens/clicks/replies even if status moved on
-    for extra_status in ("clicked", "replied"):
-        pass
+    # Email metrics derived from timestamps so opens/clicks/replies still
+    # count after the status moved on (e.g. opened -> clicked -> replied).
+    sent_states = ("sent", "delivered", "opened", "clicked", "replied")
+    email_metrics = (
+        await db.execute(
+            select(
+                func.count(EmailMessage.id),
+                func.sum(case((EmailMessage.opened_at.isnot(None), 1), else_=0)),
+                func.sum(case((EmailMessage.clicked_at.isnot(None), 1), else_=0)),
+                func.sum(case((EmailMessage.replied_at.isnot(None), 1), else_=0)),
+            ).where(EmailMessage.user_id == user.id, EmailMessage.status.in_(sent_states))
+        )
+    ).one()
+    emails_sent = int(email_metrics[0])
+    emails_opened = int(email_metrics[1] or 0)
+    emails_clicked = int(email_metrics[2] or 0)
+    emails_replied = int(email_metrics[3] or 0)
+    emails_delivered = emails_sent
 
     # Top signal sources
     source_rows = await db.execute(

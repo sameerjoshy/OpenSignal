@@ -50,7 +50,12 @@ async def mailgun_inbound(request: Request, db: AsyncSession = Depends(get_db)):
     if not from_email or not body:
         raise HTTPException(status_code=400, detail="Missing From or body")
 
-    user_id = await _owner_of(db, form.get("Message-Id", ""), from_email)
+    user_id = await _owner_of(
+        db,
+        form.get("Message-Id", ""),
+        from_email,
+        [form.get("In-Reply-To", ""), form.get("References", "")],
+    )
     if not user_id:
         # Fall back to resolving the owner from the recipient mailbox address.
         recipient = (form.get("To") or "").strip()
@@ -133,8 +138,23 @@ async def sendgrid_webhook(request: Request, db: AsyncSession = Depends(get_db))
     return {"status": "ok", "processed": processed}
 
 
-async def _owner_of(db: AsyncSession, message_id: str, recipient: str):
-    message = await get_message_by_provider_id(db, message_id)
-    if message:
-        return message.user_id
+async def _owner_of(db: AsyncSession, message_id: str, recipient: str, thread_ids: list[str] | None = None):
+    for mid in [message_id, *(thread_ids or [])]:
+        mid = (mid or "").strip().strip("<>")
+        if mid:
+            message = await get_message_by_provider_id(db, mid)
+            if message:
+                return message.user_id
+
+    recipient = (recipient or "").strip()
+    if recipient:
+        result = await db.execute(
+            select(EmailMessage)
+            .where((EmailMessage.to_email == recipient) | (EmailMessage.from_email == recipient))
+            .order_by(EmailMessage.created_at.desc())
+            .limit(1)
+        )
+        message = result.scalars().first()
+        if message:
+            return message.user_id
     return None

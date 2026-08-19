@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import Spinner from "../components/Spinner";
 import EmptyState from "../components/EmptyState";
+import ConfirmDialog, { type ConfirmState } from "../components/Confirm";
 import { StatusBadge, TierBadge } from "../components/Badges";
 import { useToast } from "../components/Toast";
 import { formatDateTime, timeAgo } from "../utils/format";
@@ -21,6 +22,8 @@ export default function CampaignDetail() {
   const [busy, setBusy] = useState<"run" | "send" | "crm" | "emails" | null>(null);
   const [csvBusy, setCsvBusy] = useState(false);
   const [emailsText, setEmailsText] = useState("");
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const importRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -224,7 +227,18 @@ export default function CampaignDetail() {
         <StatusBadge status={campaign.status} />
         <button
           className="btn btn-ghost btn-sm"
-          onClick={() => updateStatus(campaign.status === "paused" ? "active" : "paused")}
+          onClick={() => {
+            const pausing = campaign.status !== "paused";
+            setConfirm({
+              title: pausing ? "Pause this campaign?" : "Resume this campaign?",
+              message: pausing
+                ? "No new emails will be sent while paused. Existing sends are unaffected."
+                : "The campaign will resume sending on the next run.",
+              confirmLabel: pausing ? "Pause" : "Resume",
+              danger: pausing,
+              onConfirm: () => void updateStatus(pausing ? "paused" : "active"),
+            });
+          }}
           title="Pause / resume"
         >
           {campaign.status === "paused" ? "Resume" : "Pause"}
@@ -245,10 +259,33 @@ export default function CampaignDetail() {
       </div>
 
       <div className="action-bar">
-        <button className="btn btn-primary" onClick={runCampaign} disabled={busy !== null}>
+        <button
+          className="btn btn-primary"
+          onClick={() =>
+            setConfirm({
+              title: "Run campaign now?",
+              message: "This detects signals and scores every target account, then generates personalized emails. It may take a few minutes.",
+              confirmLabel: "Run campaign",
+              onConfirm: () => void runCampaign(),
+            })
+          }
+          disabled={busy !== null}
+        >
           {busy === "run" ? "Running…" : "▶ Run campaign"}
         </button>
-        <button className="btn btn-secondary" onClick={sendCampaign} disabled={busy !== null}>
+        <button
+          className="btn btn-secondary"
+          onClick={() =>
+            setConfirm({
+              title: `Send emails to ${campaign.account_count ?? 0} targets?`,
+              message: "Outreach emails will be sent immediately to every target account. This is irreversible.",
+              confirmLabel: "Send emails",
+              danger: true,
+              onConfirm: () => void sendCampaign(),
+            })
+          }
+          disabled={busy !== null}
+        >
           {busy === "send" ? "Sending…" : "Send emails"}
         </button>
         <button className="btn btn-ghost" onClick={toggleAb} disabled={abBusy} title="Split emails 50/50 between AI variant A and B, then pick the winner by reply rate">
@@ -376,7 +413,7 @@ export default function CampaignDetail() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card" ref={importRef}>
         <div className="card-header">
           <h2 className="card-title">Import email list</h2>
         </div>
@@ -416,11 +453,11 @@ export default function CampaignDetail() {
           {targets.length === 0 ? (
             <EmptyState
               title="No target accounts"
-              description="Import companies to start detecting signals and scoring."
+              description="Import an email list or CSV to add target companies, then run the campaign."
               action={
-                <Link to={`/campaigns/${campaign.id}`} className="btn btn-primary">
+                <button className="btn btn-primary" onClick={() => importRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}>
                   Import companies
-                </Link>
+                </button>
               }
             />
           ) : (
@@ -504,6 +541,8 @@ export default function CampaignDetail() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }
