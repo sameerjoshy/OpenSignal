@@ -10,7 +10,6 @@ from app.auth.dependencies import get_current_user
 from app.database import crud, schemas
 from app.database.models import Campaign, CampaignAccount, EmailMessage, User
 from app.database.session import get_db
-from app.email.service import send_campaign_emails
 from app.analytics import service as analytics_service
 
 router = APIRouter()
@@ -222,14 +221,25 @@ async def run_campaign(
 @router.post("/campaigns/{campaign_id}/send", response_model=schemas.CampaignRunOut)
 async def send_campaign(
     campaign_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     provider: str = "mailgun",
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> schemas.CampaignRunOut:
     campaign = await _get_campaign_or_404(db, user.id, campaign_id)
-    sent = await send_campaign_emails(db, user, campaign, provider=provider)
+    queued = (
+        await db.execute(
+            select(func.count()).select_from(EmailMessage).where(
+                EmailMessage.campaign_id == campaign.id,
+                EmailMessage.status.in_(["draft", "queued", "failed"]),
+            )
+        )
+    ).scalar_one()
+    background_tasks.add_task(campaign_service.send_campaign_in_background, campaign.id, user.id, provider)
     return schemas.CampaignRunOut(
-        campaign_id=campaign_id, queued=sent, message=f"Sent {sent} emails via {provider}"
+        campaign_id=campaign_id,
+        queued=int(queued),
+        message=f"Sending {queued} emails via {provider} in the background. Refresh shortly to see status.",
     )
 
 

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     mailgun_api_key: str = ""
     mailgun_domain: str = ""
     sendgrid_api_key: str = ""
+    sendgrid_webhook_verification_key: str = ""
     newsapi_key: str = ""
     hubspot_api_key: str = ""
     salesforce_client_id: str = ""

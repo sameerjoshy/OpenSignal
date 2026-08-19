@@ -117,7 +117,7 @@ async def send_message(db: AsyncSession, user: User, message: EmailMessage, prov
     await _record_event(db, message, "sent")
     from app.realtime.manager import publish
 
-    await publish("email_sent", {"message_id": str(message.id), "campaign_id": str(message.campaign_id) if message.campaign_id else None, "to_email": message.to_email})
+    await publish("email_sent", {"message_id": str(message.id), "campaign_id": str(message.campaign_id) if message.campaign_id else None, "to_email": message.to_email}, message.user_id)
     return provider_id
 
 
@@ -201,6 +201,7 @@ async def apply_event(db: AsyncSession, message: EmailMessage, event_type: str, 
             "status": new_status or message.status,
             "campaign_id": str(message.campaign_id) if message.campaign_id else None,
         },
+        message.user_id,
     )
 
 

@@ -87,6 +87,13 @@ class DeepSeekClient:
             raise ServiceError("DeepSeek returned invalid JSON")
         return json.loads(match.group(0))
 
+    @staticmethod
+    def sanitize_email_fields(subject: str, body: str) -> tuple[str, str]:
+        """Strip header-injection / control characters from AI-generated fields."""
+        clean_subject = re.sub(r"[\r\n\x00-\x1f\x7f]+", " ", subject).strip()
+        clean_body = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]+", "", body).strip()
+        return clean_subject, clean_body
+
     async def score_account(self, account: dict, signals: list[dict]) -> dict:
         signal_lines = "\n".join(
             f"- [{s.get('source')} / {s.get('signal_type')}] {s.get('title')}" for s in signals
@@ -115,20 +122,28 @@ class DeepSeekClient:
             result = self._extract_json(text)
             score = float(result.get("score", 0))
             tier = int(result.get("tier", tier_for_score(score)))
+            # Enforce the documented mapping so a model glitch can't misroute hot accounts.
+            enforced_tier = tier_for_score(score)
             return {
                 "score": score,
-                "tier": tier,
+                "tier": enforced_tier,
                 "rationale": result.get("rationale", ""),
                 "model_used": self.model_id,
             }
+        except ServiceError:
+            return self._heuristic_fallback(signals, "Model request failed; used heuristic scoring.")
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
-            score = _heuristic_score(signals)
-            return {
-                "score": score,
-                "tier": tier_for_score(score),
-                "rationale": "Model output could not be parsed; used heuristic scoring.",
-                "model_used": "heuristic",
-            }
+            return self._heuristic_fallback(signals, "Model output could not be parsed; used heuristic scoring.")
+
+    @staticmethod
+    def _heuristic_fallback(signals: list[dict], rationale: str) -> dict:
+        score = _heuristic_score(signals)
+        return {
+            "score": score,
+            "tier": tier_for_score(score),
+            "rationale": rationale,
+            "model_used": "heuristic",
+        }
 
     async def generate_email(
         self,
@@ -169,11 +184,24 @@ class DeepSeekClient:
         text = await self._chat(system, messages, max_tokens=600, temperature=0.7 if variant == "B" else 0.5)
         try:
             result = self._extract_json(text)
-            return {"subject": result.get("subject", ""), "body": result.get("body", ""), "model_used": self.model_id}
+            subject, body = self.sanitize_email_fields(
+                result.get("subject", ""), result.get("body", "")
+            )
+            return {"subject": subject, "body": body, "model_used": self.model_id}
+        except ServiceError:
+            return self._template_fallback(
+                account, template, "Model request failed; used template."
+            )
         except (ValueError, KeyError, json.JSONDecodeError):
-            subject = template.get("subject") if template else f"Quick question about {account.get('company_name')}"
-            body = template.get("body") if template else f"Hi there, I noticed {account.get('company_name')} is active. Would you be open to a quick chat?"
-            return {"subject": subject, "body": body, "model_used": "template"}
+            return self._template_fallback(
+                account, template, "Model output could not be parsed; used template."
+            )
+
+    @staticmethod
+    def _template_fallback(account: dict, template: dict | None, note: str) -> dict:
+        subject = template.get("subject") if template else f"Quick question about {account.get('company_name')}"
+        body = template.get("body") if template else f"Hi there, I noticed {account.get('company_name')} is active. Would you be open to a quick chat?"
+        return {"subject": subject, "body": body, "model_used": "template", "note": note}
 
     async def classify_reply(self, subject: str, body: str) -> dict:
         """Classify an inbound reply: hot | not_interested | question | out_of_office."""
@@ -196,8 +224,22 @@ class DeepSeekClient:
                 "summary": result.get("summary", ""),
                 "interested": bool(result.get("interested", False)),
             }
+        except ServiceError:
+            return self._rule_reply_classification(subject, body)
         except (ValueError, TypeError, json.JSONDecodeError):
-            return {"classification": "review", "confidence": 0.5, "summary": "", "interested": False}
+            return self._rule_reply_classification(subject, body)
+
+    @staticmethod
+    def _rule_reply_classification(subject: str, body: str) -> dict:
+        """Offline, deterministic reply classifier used when the model is unavailable."""
+        text = f"{subject}\n{body}".lower()
+        if any(k in text for k in ("out of office", "ooo ", "on vacation", "vacation", "will return")):
+            return {"classification": "out_of_office", "confidence": 0.8, "summary": "Auto-reply / out of office.", "interested": False}
+        if any(k in text for k in ("unsubscribe", "not interested", "stop emailing", "remove me", "no longer interested", "take me off")):
+            return {"classification": "not_interested", "confidence": 0.8, "summary": "Explicitly not interested.", "interested": False}
+        if "?" in body or any(k in text for k in ("what is", "how much", "pricing", "how does", "more details", "tell me about")):
+            return {"classification": "question", "confidence": 0.6, "summary": "Prospect asked a question.", "interested": True}
+        return {"classification": "review", "confidence": 0.4, "summary": "", "interested": False}
 
     async def suggest_reply(self, original_body: str, reply_body: str) -> str:
         """Draft a human-sounding reply to a question from a prospect."""

@@ -12,7 +12,7 @@ from app.auth.dependencies import get_current_user
 from app.database import crud, schemas
 from app.database.models import EmailMessage, User
 from app.database.session import get_db
-from app.security.encryption import encrypt_value
+from app.security.encryption import encrypt_config, encrypt_value
 from app.services.base import ServiceError
 from app.services.connection import test_service
 from app.services.registry import SERVICES, SERVICE_BY_ID
@@ -85,7 +85,8 @@ async def save_service(
         raise HTTPException(status_code=400, detail="API key or config is required")
 
     encrypted = encrypt_value(payload.api_key) if payload.api_key else ""
-    cred = await crud.upsert_credential(db, user.id, payload.service, encrypted, payload.config)
+    stored_config = encrypt_config(payload.config or {})
+    cred = await crud.upsert_credential(db, user.id, payload.service, encrypted, stored_config)
 
     try:
         result = await test_service(db, user.id, payload.service)

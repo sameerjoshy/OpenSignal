@@ -3,6 +3,7 @@
 Signals: surge in website sessions for the tracked domain => "website intent".
 """
 
+import asyncio
 import datetime as dt
 import json
 import time
@@ -16,6 +17,11 @@ from app.signals.types import SignalDraft
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 DATA_URL = "https://analyticsdata.googleapis.com/v1beta"
 
+# OAuth tokens are valid for 1h; cache per service account to avoid a token
+# request on every report. Keyed by client_email -> (access_token, expires_at).
+_token_cache: dict[str, tuple[str, float]] = {}
+_token_lock = asyncio.Lock()
+
 
 class Ga4Client:
     def __init__(self, property_id: str = "", service_account_json: str = ""):
@@ -28,29 +34,39 @@ class Ga4Client:
             raise ServiceError("GA4 service account JSON is invalid") from exc
 
     async def _access_token(self) -> str:
+        cache_key = self.sa.get("client_email", "")
         now = int(time.time())
-        assertion = pyjwt.encode(
-            {
-                "iss": self.sa["client_email"],
-                "scope": "https://www.googleapis.com/auth/analytics.readonly",
-                "aud": TOKEN_URL,
-                "iat": now,
-                "exp": now + 3600,
-            },
-            self.sa["private_key"],
-            algorithm="RS256",
-        )
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                TOKEN_URL,
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                    "assertion": assertion,
+        cached = _token_cache.get(cache_key)
+        if cached and cached[1] > now + 60:
+            return cached[0]
+        async with _token_lock:
+            cached = _token_cache.get(cache_key)
+            if cached and cached[1] > now + 60:
+                return cached[0]
+            assertion = pyjwt.encode(
+                {
+                    "iss": self.sa["client_email"],
+                    "scope": "https://www.googleapis.com/auth/analytics.readonly",
+                    "aud": TOKEN_URL,
+                    "iat": now,
+                    "exp": now + 3600,
                 },
+                self.sa["private_key"],
+                algorithm="RS256",
             )
-        if resp.status_code >= 400:
-            raise ServiceError(f"GA4 token request failed ({resp.status_code}): {resp.text[:300]}")
-        return resp.json()["access_token"]
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    TOKEN_URL,
+                    data={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                        "assertion": assertion,
+                    },
+                )
+            if resp.status_code >= 400:
+                raise ServiceError(f"GA4 token request failed ({resp.status_code}): {resp.text[:300]}")
+            token = resp.json()["access_token"]
+            _token_cache[cache_key] = (token, now + 3600 - 60)
+            return token
 
     async def _run_report(self, *, start_date: str, end_date: str, domain: str | None = None) -> int:
         token = await self._access_token()

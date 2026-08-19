@@ -28,7 +28,7 @@ export function formatCompactCurrency(value?: number | null): string {
 
 export function formatDate(value?: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function formatDateTime(value?: string | null): string {
@@ -36,6 +36,7 @@ export function formatDateTime(value?: string | null): string {
   return new Date(value).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });

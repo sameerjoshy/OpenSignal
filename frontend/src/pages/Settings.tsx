@@ -5,6 +5,7 @@ import Modal from "../components/Modal";
 import ConfirmDialog, { type ConfirmState } from "../components/Confirm";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import { serviceFields, hasRequiredInput } from "../lib/serviceFields";
 import type { EmailTemplate, ServiceStatus } from "../types";
 
 type Tab = "services" | "templates" | "account" | "quota";
@@ -26,35 +27,7 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
   );
 }
 
-const SERVICE_FIELDS: Record<string, { key: string; label: string; placeholder: string; secret?: boolean; multiline?: boolean; target: "api_key" | string }[]> = {
-  apollo: [{ key: "api_key", label: "Apollo API key", placeholder: "apollo-…", secret: true, target: "api_key" }],
-  hunter: [{ key: "api_key", label: "Hunter API key", placeholder: "hunter-…", secret: true, target: "api_key" }],
-  newsapi: [{ key: "api_key", label: "NewsAPI key", placeholder: "…", secret: true, target: "api_key" }],
-  mailgun: [
-    { key: "api_key", label: "Mailgun API key", placeholder: "key-…", secret: true, target: "api_key" },
-    { key: "domain", label: "Sending domain", placeholder: "mg.example.com", target: "config.domain" },
-  ],
-  sendgrid: [{ key: "api_key", label: "SendGrid API key", placeholder: "SG.…", secret: true, target: "api_key" }],
-  hubspot: [{ key: "api_key", label: "HubSpot private app token", placeholder: "pat-…", secret: true, target: "api_key" }],
-  salesforce: [
-    { key: "client_id", label: "Client ID", placeholder: "…", target: "api_key" },
-    { key: "client_secret", label: "Client secret", placeholder: "…", secret: true, target: "config.client_secret" },
-    { key: "username", label: "Username", placeholder: "you@company.com", target: "config.username" },
-    { key: "password", label: "Password", placeholder: "…", secret: true, target: "config.password" },
-  ],
-  ga4: [
-    {
-      key: "service_account_json",
-      label: "Service account JSON",
-      placeholder: '{ "type": "service_account", … }',
-      multiline: true,
-      target: "config.service_account_json",
-    },
-    { key: "property_id", label: "GA4 property ID", placeholder: "123456789", target: "config.property_id" },
-  ],
-  sec_edgar: [],
-  deepseek: [],
-};
+const TABS: Tab[] = ["services", "templates", "account", "quota"];
 
 export default function Settings() {
   const { user, refreshUser } = useAuth();
@@ -126,7 +99,7 @@ export default function Settings() {
     if (!connectTarget) return;
     setConnecting(true);
     try {
-      const fields = SERVICE_FIELDS[connectTarget.service] || [];
+      const fields = serviceFields(connectTarget.service);
       const payload: { service: string; api_key?: string; config?: Record<string, string> } = {
         service: connectTarget.service,
       };
@@ -203,16 +176,23 @@ export default function Settings() {
 
   return (
     <div className="settings-layout">
-      <div className="settings-tabs">
-        {(["services", "templates", "account", "quota"] as Tab[]).map((t) => (
-          <button key={t} className={`settings-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            className={`settings-tab${tab === t ? " active" : ""}`}
+            role="tab"
+            aria-selected={tab === t}
+            aria-controls={`tab-${t}`}
+            onClick={() => setTab(t)}
+          >
             {t}
           </button>
         ))}
       </div>
 
       {tab === "services" && (
-        <div className="stack">
+        <div className="stack" role="tabpanel" id="tab-services">
           <div className="page-head" style={{ marginBottom: 8 }}>
             <div>
               <h1 className="page-title">Connected services</h1>
@@ -273,7 +253,7 @@ export default function Settings() {
       )}
 
       {tab === "templates" && (
-        <div className="stack">
+        <div className="stack" role="tabpanel" id="tab-templates">
           <div className="filter-bar">
             <div className="filter-spacer" />
             <button className="btn btn-primary" onClick={() => setTemplateModal(true)}>
@@ -335,7 +315,7 @@ export default function Settings() {
       )}
 
       {tab === "account" && (
-        <div className="card stack-narrow">
+        <div className="card stack-narrow" role="tabpanel" id="tab-account">
           <div className="card-body">
             <div className="field">
               <label className="label">Full name</label>
@@ -360,7 +340,7 @@ export default function Settings() {
       )}
 
       {tab === "quota" && (
-        <div className="card">
+        <div className="card" role="tabpanel" id="tab-quota">
           <div className="card-header">
             <h2 className="card-title">Free tier usage</h2>
           </div>
@@ -388,7 +368,11 @@ export default function Settings() {
             <button className="btn btn-ghost" onClick={() => setConnectTarget(null)}>
               Cancel
             </button>
-            <button className="btn btn-primary" onClick={handleConnect} disabled={connecting}>
+            <button
+              className="btn btn-primary"
+              onClick={handleConnect}
+              disabled={connecting || !hasRequiredInput(connectTarget?.service || "", connectValues)}
+            >
               {connecting ? "Saving…" : "Save"}
             </button>
           </>
@@ -396,7 +380,7 @@ export default function Settings() {
       >
         {connectTarget && (
           <div className="connect-form">
-            {(SERVICE_FIELDS[connectTarget.service] || []).map((field) => (
+            {serviceFields(connectTarget.service).map((field) => (
               <div className="field" key={field.key}>
                 <label className="label" htmlFor={field.key}>
                   {field.label}
@@ -424,7 +408,7 @@ export default function Settings() {
                 )}
               </div>
             ))}
-            {(SERVICE_FIELDS[connectTarget.service] || []).length === 0 && (
+            {serviceFields(connectTarget.service).length === 0 && (
               <p className="muted">Configured via environment variables. Use Test to verify it.</p>
             )}
           </div>
@@ -440,7 +424,11 @@ export default function Settings() {
             <button className="btn btn-ghost" onClick={() => setTemplateModal(false)}>
               Cancel
             </button>
-            <button className="btn btn-primary" onClick={createTemplate}>
+            <button
+              className="btn btn-primary"
+              onClick={createTemplate}
+              disabled={!templateForm.name.trim() || !templateForm.subject.trim() || !templateForm.body.trim()}
+            >
               Create
             </button>
           </>

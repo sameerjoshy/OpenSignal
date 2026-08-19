@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from app.analytics.routes import router as analytics_router
+from app.auth.jwt import decode_access_token
 from app.auth.routes import router as auth_router
 from app.campaigns.routes import router as campaigns_router
 from app.crm.routes import router as crm_router
@@ -107,9 +108,20 @@ async def service_error_handler(request, exc: ServiceError):
 
 
 @app.websocket("/ws/metrics")
-async def metrics_ws(ws: WebSocket):
-    """Live metrics feed - broadcasts email/score/campaign events to connected clients."""
-    await manager.connect(ws)
+async def metrics_ws(ws: WebSocket, token: str = ""):
+    """Live metrics feed - authenticated per-user broadcasts of email/score/campaign events."""
+    user_id = None
+    if token:
+        try:
+            payload = decode_access_token(token)
+            user_id = payload.get("sub")
+        except Exception:  # noqa: BLE001
+            user_id = None
+    if not user_id:
+        await ws.close(code=4401)
+        return
+
+    await manager.connect(ws, user_id)
     try:
         while True:
             await ws.receive_text()  # client heartbeats; keep-alive

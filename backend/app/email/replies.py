@@ -93,6 +93,7 @@ async def process_inbound_reply(
             "classification": reply.classification,
             "summary": reply.summary or "",
         },
+        user.id,
     )
     return reply
 

@@ -59,6 +59,7 @@ async def score_account(db: AsyncSession, user: User, account: Account) -> dict:
             "score": result["score"],
             "tier": result["tier"],
         },
+        user.id,
     )
     return result
 

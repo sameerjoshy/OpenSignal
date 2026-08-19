@@ -144,6 +144,7 @@ async def test_send_with_mocked_provider(client, user_token, db, monkeypatch):
     resp = await client.post(
         f"/api/v1/campaigns/{campaign['id']}/send?provider=mailgun", headers=auth_headers(user_token)
     )
-    # send requires a stored mailgun key (env empty in tests) -> expect a 400 with clear message
-    assert resp.status_code == 400
-    assert "Mailgun" in resp.json()["detail"]
+    # /send is backgrounded: it returns 200 with a queued count and a "background" message.
+    assert resp.status_code == 200
+    assert resp.json()["queued"] >= 1
+    assert "background" in resp.json()["message"]

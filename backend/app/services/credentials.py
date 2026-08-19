@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import crud
-from app.security.encryption import decrypt_value
+from app.security.encryption import decrypt_config, decrypt_value
 from app.services.base import ServiceNotConfigured
 from config import settings
 
@@ -21,7 +21,7 @@ async def resolve_credentials(db: AsyncSession, user_id, service: str) -> Servic
     """Prefer the user's stored (encrypted) key, falling back to env-configured globals."""
     cred = await crud.get_credential(db, user_id, service)
     if cred:
-        config = cred.config or {}
+        config = decrypt_config(cred.config)
         try:
             key = decrypt_value(cred.encrypted_key)
             return ServiceCredentials(api_key=key, config=config, source="user")

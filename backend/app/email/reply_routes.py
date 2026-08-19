@@ -27,14 +27,25 @@ async def list_replies(
         .limit(100)
     )
     replies = result.scalars().all()
+
+    message_ids = {r.email_message_id for r in replies if r.email_message_id}
+    originals: dict[uuid.UUID, EmailMessage] = {}
+    if message_ids:
+        messages = (
+            await db.execute(select(EmailMessage).where(EmailMessage.id.in_(message_ids)))
+        ).scalars().all()
+        originals = {m.id: m for m in messages}
+
+    account_ids = {m.account_id for m in originals.values() if m.account_id}
+    accounts: dict[uuid.UUID, Account] = {}
+    if account_ids:
+        rows = (await db.execute(select(Account).where(Account.id.in_(account_ids)))).scalars().all()
+        accounts = {a.id: a for a in rows}
+
     out: list[schemas.EmailReplyOut] = []
     for reply in replies:
-        account = None
-        original: EmailMessage | None = None
-        if reply.email_message_id:
-            original = await db.get(EmailMessage, reply.email_message_id)
-            if original and original.account_id:
-                account = await db.get(Account, original.account_id)
+        original = originals.get(reply.email_message_id) if reply.email_message_id else None
+        account = accounts.get(original.account_id) if original and original.account_id else None
         out.append(
             schemas.EmailReplyOut(
                 id=reply.id,

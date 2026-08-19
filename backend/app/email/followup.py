@@ -51,9 +51,24 @@ async def send_follow_up(db: AsyncSession, user: User, message_id) -> dict:
         raise ValueError("Message not found")
     if message.replied_at:
         raise ValueError("This prospect already replied - no follow-up needed")
+    if message.sequence_step >= 2:
+        raise ValueError("This message is already a follow-up")
     account = await crud.get_account(db, message.account_id) if message.account_id else None
     if not account:
         raise ValueError("Account not found for this message")
+
+    # Duplicate guard: never send two step-2 nudges down the same thread.
+    existing = await db.execute(
+        select(EmailMessage).where(
+            EmailMessage.user_id == user.id,
+            EmailMessage.campaign_account_id == message.campaign_account_id,
+            EmailMessage.sequence_step == 2,
+            EmailMessage.id != message.id,
+        )
+    )
+    if existing.scalars().first():
+        raise ValueError("A follow-up was already sent for this conversation")
+
     campaign = await db.get(Campaign, message.campaign_id) if message.campaign_id else None
     campaign_name = campaign.name if campaign else "your outreach"
 
@@ -65,7 +80,7 @@ async def send_follow_up(db: AsyncSession, user: User, message_id) -> dict:
         campaign if campaign else _FakeCampaign(campaign_name),
         product_context=product_context,
         sequence_step=2,
-        variant=message.variant,
+        variant="A",
     )
 
     follow_up = EmailMessage(
@@ -79,7 +94,7 @@ async def send_follow_up(db: AsyncSession, user: User, message_id) -> dict:
         status="draft",
         sequence_step=2,
         provider=None,
-        variant=message.variant,
+        variant="A",
     )
     db.add(follow_up)
     await db.commit()

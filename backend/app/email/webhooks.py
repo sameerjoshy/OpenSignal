@@ -116,12 +116,35 @@ async def mailgun_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.post("/webhooks/sendgrid")
 async def sendgrid_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    body = await request.json()
-    if not isinstance(body, list):
+    signature = request.headers.get("X-Twilio-Email-Event-Webhook-Signature", "")
+    timestamp = request.headers.get("X-Twilio-Email-Event-Webhook-Timestamp", "")
+    body = await request.body()
+
+    owner_id = await _owner_of_sendgrid(db, body)
+    verification_key = ""
+    if owner_id:
+        creds = await resolve_credentials(db, owner_id, "sendgrid")
+        verification_key = (creds.config or {}).get("webhook_secret") or ""
+    if not verification_key:
+        verification_key = settings.sendgrid_webhook_verification_key
+
+    if not signature or not timestamp or not verification_key:
+        raise HTTPException(
+            status_code=403,
+            detail="SendGrid webhook verification key not configured",
+        )
+    if not _verify_sendgrid_signature(timestamp, signature, body, verification_key):
+        raise HTTPException(status_code=403, detail="Invalid SendGrid webhook signature")
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Expected a JSON array of events")
+    if not isinstance(payload, list):
         raise HTTPException(status_code=400, detail="Expected an array of events")
 
     processed = 0
-    for event in body:
+    for event in payload:
         message = None
         unique_args = event.get("unique_args") or {}
         opensignal_id = unique_args.get("opensignal_message_id")
@@ -136,6 +159,51 @@ async def sendgrid_webhook(request: Request, db: AsyncSession = Depends(get_db))
             await apply_event(db, message, event.get("event", ""), {"payload": event})
             processed += 1
     return {"status": "ok", "processed": processed}
+
+
+async def _owner_of_sendgrid(db: AsyncSession, body: bytes) -> str | None:
+    """Resolve a SendGrid event owner without trusting any client-supplied field."""
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, list):
+        return None
+    for event in payload:
+        unique_args = event.get("unique_args") or {}
+        opensignal_id = unique_args.get("opensignal_message_id")
+        if opensignal_id:
+            try:
+                message = await db.get(EmailMessage, uuid.UUID(str(opensignal_id)))
+            except ValueError:
+                message = None
+            if message:
+                return str(message.user_id)
+        message_id = event.get("sg_message_id", "")
+        if message_id:
+            message = await get_message_by_provider_id(db, str(message_id))
+            if message:
+                return str(message.user_id)
+    return None
+
+
+def _verify_sendgrid_signature(timestamp: str, signature_b64: str, body: bytes, verification_key: str) -> bool:
+    """Verify a SendGrid signed webhook (RSA-SHA256 over timestamp + body)."""
+    try:
+        import base64
+
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        der = base64.b64decode(verification_key.strip())
+        public_key = serialization.load_der_public_key(der)
+        signed = timestamp.encode("utf-8") + body
+        signature = base64.b64decode(signature_b64)
+        public_key.verify(signature, signed, padding.PKCS1v15(), hashes.SHA256())
+        return True
+    except (InvalidSignature, Exception):  # noqa: BLE001
+        return False
 
 
 async def _owner_of(db: AsyncSession, message_id: str, recipient: str, thread_ids: list[str] | None = None):

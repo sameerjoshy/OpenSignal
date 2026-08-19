@@ -1,23 +1,37 @@
 """Campaign orchestration: create, import targets, route by tier, generate + send email sequence."""
 
+import asyncio
 import datetime as dt
 import logging
+import random
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.campaigns.importer import extract_emails, parse_csv, parse_email_file
 from app.database import crud
-from app.database.models import Campaign, CampaignAccount, User
+from app.database.models import Campaign, CampaignAccount, EmailMessage, User
 from app.database.session import AsyncSessionLocal
-from app.email.service import generate_message_for_account
+from app.email.service import generate_message_for_account, send_campaign_emails
 from app.services.base import ServiceError
+from app.services.orchestration import EMAIL, route_campaign
 
 logger = logging.getLogger("opensignal.campaigns")
 
 DEFAULT_CHANNELS = {"email": True, "linkedin": False, "call": False}
 DEFAULT_CADENCE = {"step_interval_days": 2, "max_steps": 3}
 STATUS_ORDER = ["draft", "active", "paused", "completed", "archived"]
+
+# In-process per-campaign run locks prevent duplicate/concurrent campaign runs.
+_run_locks: dict[object, asyncio.Lock] = {}
+
+
+async def _run_lock(campaign_id) -> asyncio.Lock:
+    lock = _run_locks.get(campaign_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _run_locks[campaign_id] = lock
+    return lock
 
 
 async def import_companies(db: AsyncSession, user: User, campaign: Campaign, companies: list[str]) -> int:
@@ -99,18 +113,33 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
     """Detect signals, score accounts, route by tier, and generate first email for each target."""
     from app.signals import detector, scorer
 
+    lock = await _run_lock(campaign.id)
+    if lock.locked():
+        return {
+            "processed": 0,
+            "signals": 0,
+            "scored": 0,
+            "generated": 0,
+            "errors": 0,
+            "message": "Campaign is already running. Wait for it to finish before running again.",
+        }
+    async with lock:
+        return await _run_campaign_locked(db, user, campaign, detector, scorer)
+
+
+async def _run_campaign_locked(db, user, campaign, detector, scorer) -> dict:
     result = {"processed": 0, "signals": 0, "scored": 0, "generated": 0, "errors": 0}
     stmt = select(CampaignAccount).where(CampaignAccount.campaign_id == campaign.id)
     targets = list((await db.execute(stmt)).scalars().all())
 
-    channels = campaign.channels or DEFAULT_CHANNELS
     cadence = campaign.cadence or DEFAULT_CADENCE
     max_steps = int(cadence.get("max_steps", 3))
     product_context = campaign.description or "our B2B product"
 
     ab_enabled = bool(getattr(campaign, "ab_enabled", False))
+    winner = getattr(campaign, "ab_won", None)
 
-    for index, target in enumerate(targets):
+    for target in targets:
         try:
             account = await crud.get_account_for_user(db, user.id, target.account_id)
             if not account:
@@ -126,11 +155,21 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
             target.status = "ready"
             await db.commit()
 
-            tier = account.tier or 3
-            step_limit = 1 if tier == 3 else max_steps
+            # Idempotency: don't stack duplicate step-1 emails across re-runs.
+            existing = await db.execute(
+                select(EmailMessage).where(
+                    EmailMessage.campaign_account_id == target.id,
+                    EmailMessage.sequence_step == 1,
+                    EmailMessage.status.in_(["draft", "queued", "sent"]),
+                )
+            )
+            if existing.scalars().first():
+                result["processed"] += 1
+                continue
 
-            if channels.get("email", True):
-                variant = "B" if ab_enabled and index % 2 == 1 else "A"
+            channels = route_campaign(account)
+            if EMAIL in channels:
+                variant = _pick_variant(ab_enabled, winner)
                 message = await generate_message_for_account(
                     db,
                     user=user,
@@ -170,8 +209,18 @@ async def run_campaign(db: AsyncSession, user: User, campaign: Campaign) -> dict
             "generated": result["generated"],
             "errors": result["errors"],
         },
+        campaign.user_id,
     )
     return result
+
+
+def _pick_variant(ab_enabled: bool, winner: str | None) -> str:
+    """Return the A/B variant for an email. Randomized 50/50, or biased toward the declared winner."""
+    if not ab_enabled:
+        return "A"
+    if winner in ("A", "B"):
+        return winner if random.random() < 0.8 else ("B" if winner == "A" else "A")
+    return "B" if random.random() < 0.5 else "A"
 
 
 async def run_campaign_in_background(campaign_id, user_id) -> dict:
@@ -196,6 +245,22 @@ async def run_campaign_in_background(campaign_id, user_id) -> dict:
         except Exception:  # noqa: BLE001
             pass
         return {"processed": 0, "errors": 1, "message": f"Background run failed: {str(exc)[:300]}"}
+
+
+async def send_campaign_in_background(campaign_id, user_id, provider: str = "mailgun") -> dict:
+    """Send a campaign's queued emails with its own DB session (safe for detached execution)."""
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, user_id)
+            campaign = await db.get(Campaign, campaign_id)
+            if not user or not campaign:
+                logger.warning("Campaign send skipped: user or campaign missing")
+                return {"queued": 0, "message": "Campaign or user not found"}
+            sent = await send_campaign_emails(db, user, campaign, provider=provider)
+            return {"queued": sent, "message": f"Sent {sent} emails via {provider}"}
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Campaign background send failed: %s", campaign_id)
+        return {"queued": 0, "message": f"Background send failed: {str(exc)[:300]}"}
 
 
 def extract_email_list(text_or_emails: str | list[str]) -> list[str]:
