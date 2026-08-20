@@ -17,13 +17,15 @@ def run_campaign_task(user_id: str, campaign_id: str) -> dict:
     async def _run() -> dict:
         async with AsyncSessionLocal() as db:
             user = await crud.get_user(db, uuid.UUID(user_id))
+            if not user:
+                return {"ok": False, "error": "user or campaign not found"}
             result = await db.execute(
                 select(Campaign).where(
                     Campaign.id == uuid.UUID(campaign_id), Campaign.user_id == user.id
                 )
             )
             campaign = result.scalar_one_or_none()
-            if not user or not campaign:
+            if not campaign:
                 return {"ok": False, "error": "user or campaign not found"}
             outcome = await run_campaign(db, user, campaign)
             return {"ok": True, **outcome}

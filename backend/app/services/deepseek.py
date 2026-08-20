@@ -117,8 +117,8 @@ class DeepSeekClient:
                 ),
             }
         ]
-        text = await self._chat(system, messages, max_tokens=500, temperature=0.2)
         try:
+            text = await self._chat(system, messages, max_tokens=500, temperature=0.2)
             result = self._extract_json(text)
             score = float(result.get("score", 0))
             tier = int(result.get("tier", tier_for_score(score)))
@@ -130,8 +130,8 @@ class DeepSeekClient:
                 "rationale": result.get("rationale", ""),
                 "model_used": self.model_id,
             }
-        except ServiceError:
-            return self._heuristic_fallback(signals, "Model request failed; used heuristic scoring.")
+        except ServiceError as exc:
+            return self._heuristic_fallback(signals, f"Model request failed ({exc}); used heuristic scoring.")
         except (ValueError, KeyError, TypeError, json.JSONDecodeError):
             return self._heuristic_fallback(signals, "Model output could not be parsed; used heuristic scoring.")
 
@@ -181,8 +181,8 @@ class DeepSeekClient:
             + (f"USE THIS TEMPLATE AS A BASE (still personalize):\n{template.get('body', '')}\n" if template else "")
         )
         messages = [{"role": "user", "content": user_content}]
-        text = await self._chat(system, messages, max_tokens=600, temperature=0.7 if variant == "B" else 0.5)
         try:
+            text = await self._chat(system, messages, max_tokens=600, temperature=0.7 if variant == "B" else 0.5)
             result = self._extract_json(text)
             subject, body = self.sanitize_email_fields(
                 result.get("subject", ""), result.get("body", "")
@@ -212,8 +212,8 @@ class DeepSeekClient:
         )
         user_content = f"SUBJECT: {subject}\n\nREPLY BODY:\n{body[:4000]}"
         messages = [{"role": "user", "content": user_content}]
-        text = await self._chat(system, messages, max_tokens=300, temperature=0.1)
         try:
+            text = await self._chat(system, messages, max_tokens=300, temperature=0.1)
             result = self._extract_json(text)
             classification = result.get("classification", "review")
             if classification not in ("hot", "not_interested", "question", "out_of_office"):
