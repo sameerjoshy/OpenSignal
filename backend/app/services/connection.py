@@ -22,8 +22,21 @@ async def test_service(db: AsyncSession, user_id, service: str) -> dict:
 
     if service == "apollo":
         client = ApolloClient(require_key(creds, "Apollo"))
-        await client.people_search("OpenAI", limit=1)
-        return {"ok": True, "message": "Apollo connected", "quota": {"note": "50 searches/month free"}}
+        try:
+            await client.people_search("OpenAI", limit=1)
+            return {"ok": True, "message": "Apollo connected", "quota": {"note": "50 searches/month free"}}
+        except ServiceError as exc:
+            # Free plan doesn't include people search (403). Validate the key a different way
+            # so the user can still connect Apollo for company/contact enrichment.
+            try:
+                await client.enrich_company("openai.com", "OpenAI")
+            except ServiceError:
+                raise exc
+            return {
+                "ok": True,
+                "message": "Apollo connected (people search needs an Apollo paid plan)",
+                "quota": {"note": "People search requires an Apollo paid plan; enrichment works on the free tier"},
+            }
 
     if service == "hunter":
         client = HunterClient(require_key(creds, "Hunter"))

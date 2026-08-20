@@ -1,11 +1,41 @@
+import json
+import logging
+
 import httpx
 
 from app.services.base import ServiceError
 from app.signals.types import SignalDraft
 
+logger = logging.getLogger("opensignal.apollo")
+
 APOLLO_BASE = "https://api.apollo.io/api/v1"
 
 EXECUTIVE_TITLES = ("ceo", "cto", "cfo", "cmo", "coo", "vp", "vice president", "chief", "director of", "head of")
+
+_PLAN_RESTRICTION_MARKERS = (
+    "not included in your Free plan",
+    "not accessible, even with a master key",
+    "is not included in your plan",
+    "upgrade your plan",
+)
+
+
+def _format_error(status: int, body_text: str) -> str:
+    """Build a user-friendly error for Apollo failures (raw bodies are noisy JSON)."""
+    msg = body_text[:300]
+    try:
+        data = json.loads(body_text)
+        msg = data.get("error") or data.get("message") or data.get("detail") or msg
+    except (ValueError, TypeError):
+        pass
+
+    lowered = f"{body_text} {msg}".lower()
+    if status == 403 or any(marker in lowered for marker in _PLAN_RESTRICTION_MARKERS):
+        return (
+            "Apollo people search isn't included in your Apollo plan. "
+            "Upgrade at apollo.io, or remove Apollo from this flow and it won't block the rest."
+        )
+    return f"Apollo request failed ({status}): {msg}"
 
 
 class ApolloClient:
@@ -20,14 +50,14 @@ class ApolloClient:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{APOLLO_BASE}{path}", headers=self._headers, json=payload)
         if resp.status_code >= 400:
-            raise ServiceError(f"Apollo request failed ({resp.status_code}): {resp.text[:300]}")
+            raise ServiceError(_format_error(resp.status_code, resp.text), status_code=resp.status_code)
         return resp.json()
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(f"{APOLLO_BASE}{path}", headers=self._headers, params=params or {})
         if resp.status_code >= 400:
-            raise ServiceError(f"Apollo request failed ({resp.status_code}): {resp.text[:300]}")
+            raise ServiceError(_format_error(resp.status_code, resp.text), status_code=resp.status_code)
         return resp.json()
 
     async def enrich_company(self, domain: str | None, company_name: str | None = None) -> dict:
@@ -108,7 +138,12 @@ class ApolloClient:
                 )
             )
 
-        people = await self.people_search(company_name)
+        people = []
+        try:
+            people = await self.people_search(company_name)
+        except ServiceError as exc:
+            # People search is a paid-plan endpoint; don't drop enrichment signals because of it.
+            logger.warning("Apollo people search unavailable for %s: %s", company_name, exc)
         for person in people[:10]:
             title = person.get("title") or ""
             low = title.lower()
