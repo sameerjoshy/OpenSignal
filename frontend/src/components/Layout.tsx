@@ -259,6 +259,9 @@ export default function Layout() {
             ☰
           </button>
           <h1 className="topbar-title">{title}</h1>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate("/campaigns/new")} title="Create a new campaign">
+            <span>＋</span> New campaign
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setCmdOpen(true)} title="Search & jump (⌘K)">
             <span>⌕</span> Search
             <kbd>⌘K</kbd>

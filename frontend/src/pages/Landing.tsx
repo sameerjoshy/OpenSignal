@@ -205,11 +205,11 @@ export default function Landing() {
               The signal-based demand engine
             </div>
             <h1 className="landing-hero-title">
-              Reach your prospects <span className="landing-gradient">the moment they're ready</span> to buy
+              Signal-based outreach that <span className="landing-gradient">actually works</span>
             </h1>
             <p className="landing-hero-sub">
-              Signal360 watches your target accounts 24/7, surfaces the buying signals competitors miss, and launches
-              personalized outreach on autopilot. Stop cold-emailing. Start selling into intent.
+              Most outreach tools are complicated. Signal360 finds the accounts that are already looking, surfaces the
+              buying signals competitors miss, and reaches them at the right moment — no data team required.
             </p>
             <div className="landing-hero-cta">
               <Link className="btn landing-btn-primary landing-btn-lg" to={ctaHref}>
@@ -225,6 +225,25 @@ export default function Landing() {
             <p className="landing-hero-note">
               Free to start · No credit card · Set up in minutes
             </p>
+
+            {/* Value props: adoption-first, one sentence each */}
+            <div className="landing-value-row">
+              <div className="landing-value-item">
+                <div className="landing-value-icon" aria-hidden="true">⚡</div>
+                <h3 className="landing-value-title">Simple</h3>
+                <p className="landing-value-desc">Create a campaign in minutes. No data engineering, no training, no 30-step setup.</p>
+              </div>
+              <div className="landing-value-item">
+                <div className="landing-value-icon" aria-hidden="true">🎯</div>
+                <h3 className="landing-value-title">Aligned</h3>
+                <p className="landing-value-desc">Every email is written from a live buying signal, so outreach lands when it matters.</p>
+              </div>
+              <div className="landing-value-item">
+                <div className="landing-value-icon" aria-hidden="true">📈</div>
+                <h3 className="landing-value-title">Wins</h3>
+                <p className="landing-value-desc">Teams see 2-3x better reply rates selling into intent instead of cold lists.</p>
+              </div>
+            </div>
 
             {/* Product mockup */}
             <div className="landing-mockup-wrap">

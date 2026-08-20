@@ -120,9 +120,14 @@ export default function Dashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-desc">Your signal intelligence pipeline — live and at a glance.</p>
         </div>
-        <button className="btn btn-secondary" onClick={() => window.location.reload()} title="Refresh dashboard">
-          ↻ Refresh
-        </button>
+        <div className="page-actions">
+          <Link className="btn btn-primary" to="/campaigns/new">
+            ＋ New campaign
+          </Link>
+          <button className="btn btn-secondary" onClick={() => window.location.reload()} title="Refresh dashboard">
+            ↻ Refresh
+          </button>
+        </div>
       </div>
       {error && (
         <div className="alert alert-warning" role="alert">
@@ -132,9 +137,53 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* This week's performance — status at a glance */}
+      <div className="card perf-hero">
+        <div className="card-body">
+          <div className="perf-head">
+            <div>
+              <h2 className="card-title">This week's performance</h2>
+              <p className="card-sub">
+                {a.signals_this_week} signals detected · {a.emails_sent} emails sent · {a.emails_replied} replies
+              </p>
+            </div>
+            <span className={`badge ${a.emails_replied > 0 ? "badge-active" : "badge-muted"}`}>
+              {a.emails_replied > 0 ? "● On track" : "○ Getting started"}
+            </span>
+          </div>
+          <div className="perf-metrics">
+            <div className="perf-metric">
+              <div className="perf-metric-label">Pipeline value</div>
+              <div className="perf-metric-value">{outcomes ? formatCurrency(outcomes.pipeline_value) : "—"}</div>
+            </div>
+            <div className="perf-metric">
+              <div className="perf-metric-label">Monthly forecast</div>
+              <div className="perf-metric-value">{outcomes ? formatCurrency(outcomes.monthly_forecast) : "—"}</div>
+            </div>
+            <div className="perf-metric">
+              <div className="perf-metric-label">Time saved</div>
+              <div className="perf-metric-value">{outcomes ? `${outcomes.time_saved_hours}h` : "—"}</div>
+            </div>
+          </div>
+          <div className="perf-progress">
+            <div className="perf-progress-label">
+              <span>Pipeline forecast</span>
+              <span>{outcomes ? `${outcomes.forecast_growth_pct}% vs last month` : "—"}</span>
+            </div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${Math.min(100, Math.max(4, Math.round((a.emails_replied / Math.max(a.emails_sent, 1)) * 100)))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="metric-grid">
-        <MetricCard label="Signals this week" value={a.signals_this_week} icon="◎" accent="indigo" />
-        <MetricCard label="Target accounts" value={a.total_accounts} icon="◈" accent="blue" />
+        <MetricCard label="Signals this week" value={a.signals_this_week} icon="◎" accent="blue" />
+        <MetricCard label="Target accounts" value={a.total_accounts} icon="◈" accent="indigo" />
         <MetricCard label="Active campaigns" value={a.active_campaigns} icon="◉" accent="amber" />
         <MetricCard label="Emails sent" value={a.emails_sent} icon="✉" accent="green" />
         <MetricCard label="Replies" value={a.emails_replied} icon="↩" accent="rose" />
