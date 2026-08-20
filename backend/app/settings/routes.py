@@ -28,6 +28,7 @@ class ServiceStatusOut(BaseModel):
     free_tier_note: str
     connected: bool
     source: str  # "user" | "env" | "none"
+    keyless: bool = False
     validated_at: str | None = None
 
 
@@ -65,8 +66,9 @@ async def list_services(
                 name=meta.name,
                 description=meta.description,
                 free_tier_note=meta.free_tier_note,
-                connected=source != "none",
+                connected=source != "none" or meta.keyless,
                 source=source,
+                keyless=meta.keyless,
                 validated_at=cred.validated_at.isoformat() if cred and cred.validated_at else None,
             )
         )

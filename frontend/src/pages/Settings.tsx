@@ -214,9 +214,16 @@ export default function Settings() {
                     </span>
                   </div>
                   <p className="service-desc">{service.description}</p>
-                  <p className="service-note">{service.free_tier_note} · source: {service.source}</p>
+                  <p className="service-note">
+                    {service.keyless ? "No API key needed · Public API" : service.free_tier_note}
+                    {!service.keyless && ` · source: ${service.source}`}
+                  </p>
                   <div className="service-actions">
-                    {service.connected ? (
+                    {service.keyless ? (
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleTest(service)}>
+                        Verify connection
+                      </button>
+                    ) : service.connected ? (
                       <>
                         <button className="btn btn-secondary btn-sm" onClick={() => handleTest(service)}>
                           Test
@@ -380,36 +387,41 @@ export default function Settings() {
       >
         {connectTarget && (
           <div className="connect-form">
-            {serviceFields(connectTarget.service).map((field) => (
-              <div className="field" key={field.key}>
-                <label className="label" htmlFor={field.key}>
-                  {field.label}
-                </label>
-                {field.multiline ? (
-                  <textarea
-                    id={field.key}
-                    className="textarea"
-                    rows={5}
-                    value={connectValues[field.key] || ""}
-                    onChange={(event) => setConnectValues({ ...connectValues, [field.key]: event.target.value })}
-                    placeholder={field.placeholder}
-                    autoComplete="off"
-                  />
-                ) : (
-                  <input
-                    id={field.key}
-                    type={field.secret ? "password" : "text"}
-                    className="input"
-                    value={connectValues[field.key] || ""}
-                    onChange={(event) => setConnectValues({ ...connectValues, [field.key]: event.target.value })}
-                    placeholder={field.placeholder}
-                    autoComplete="off"
-                  />
-                )}
-              </div>
-            ))}
-            {serviceFields(connectTarget.service).length === 0 && (
-              <p className="muted">Configured via environment variables. Use Test to verify it.</p>
+            {serviceFields(connectTarget.service).length === 0 ? (
+              <p className="muted">
+                {connectTarget.keyless
+                  ? "This service is free and needs no API key. Use Verify connection to check it."
+                  : "This service is configured via your workspace environment. Add an API key to manage it here."}
+              </p>
+            ) : (
+              serviceFields(connectTarget.service).map((field) => (
+                <div className="field" key={field.key}>
+                  <label className="label" htmlFor={field.key}>
+                    {field.label}
+                  </label>
+                  {field.multiline ? (
+                    <textarea
+                      id={field.key}
+                      className="textarea"
+                      rows={5}
+                      value={connectValues[field.key] || ""}
+                      onChange={(event) => setConnectValues({ ...connectValues, [field.key]: event.target.value })}
+                      placeholder={field.placeholder}
+                      autoComplete="off"
+                    />
+                  ) : (
+                    <input
+                      id={field.key}
+                      type={field.secret ? "password" : "text"}
+                      className="input"
+                      value={connectValues[field.key] || ""}
+                      onChange={(event) => setConnectValues({ ...connectValues, [field.key]: event.target.value })}
+                      placeholder={field.placeholder}
+                      autoComplete="off"
+                    />
+                  )}
+                </div>
+              ))
             )}
           </div>
         )}

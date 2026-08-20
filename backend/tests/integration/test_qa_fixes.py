@@ -77,3 +77,15 @@ async def test_save_ga4_with_invalid_config_returns_clean_error_not_500(client, 
     assert resp.status_code == 201
     assert resp.json()["ok"] is False
     assert "client_email" in resp.json()["message"]
+
+
+async def test_service_list_marks_keyless_services_available(client, user_token):
+    """Keyless services (SEC EDGAR) are marked connected/available without requiring a key."""
+    resp = await client.get("/api/v1/settings/services", headers=auth_headers(user_token))
+    assert resp.status_code == 200
+    services = {s["service"]: s for s in resp.json()}
+    assert services["sec_edgar"]["keyless"] is True
+    assert services["sec_edgar"]["connected"] is True
+    # Every service that needs a key has a defined field in the UI registry is a frontend concern,
+    # but we assert the metadata is consistent: keyless only for sec_edgar.
+    assert all(not s["keyless"] for name, s in services.items() if name != "sec_edgar")

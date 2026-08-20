@@ -33,8 +33,8 @@ export const SERVICE_FIELDS: Record<string, ServiceField[]> = {
     },
     { key: "property_id", label: "GA4 property ID", placeholder: "123456789", target: "config.property_id" },
   ],
+  deepseek: [{ key: "api_key", label: "DeepSeek API key", placeholder: "sk-…", secret: true, target: "api_key" }],
   sec_edgar: [],
-  deepseek: [],
 };
 
 export function serviceFields(service: string): ServiceField[] {

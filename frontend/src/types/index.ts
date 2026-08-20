@@ -21,6 +21,7 @@ export interface ServiceStatus {
   free_tier_note: string;
   connected: boolean;
   source: "user" | "env" | "none";
+  keyless?: boolean;
   validated_at?: string | null;
 }
 

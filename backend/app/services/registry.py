@@ -10,6 +10,7 @@ class ServiceMeta:
     description: str
     env_api_key: str
     requires_config: bool = False
+    keyless: bool = False
     free_tier_note: str = ""
     tags: list[str] = field(default_factory=list)
 
@@ -87,6 +88,7 @@ SERVICES: list[ServiceMeta] = [
         "SEC EDGAR",
         "Regulatory filings (8-K, S-1, 13D) - funding & event signals.",
         "",
+        keyless=True,
         free_tier_note="Public API, unlimited",
         tags=["signal"],
     ),

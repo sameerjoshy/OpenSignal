@@ -5,46 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import Modal from "../components/Modal";
 import Spinner from "../components/Spinner";
 import { useToast } from "../components/Toast";
+import { serviceFields as SERVICE_FIELDS } from "../lib/serviceFields";
 import type { ServiceStatus } from "../types";
-
-interface FieldDef {
-  key: string;
-  label: string;
-  placeholder: string;
-  secret?: boolean;
-  multiline?: boolean;
-  target: "api_key" | string;
-}
-
-const SERVICE_FIELDS: Record<string, FieldDef[]> = {
-  apollo: [{ key: "api_key", label: "Apollo API key", placeholder: "apollo-…", secret: true, target: "api_key" }],
-  hunter: [{ key: "api_key", label: "Hunter API key", placeholder: "hunter-…", secret: true, target: "api_key" }],
-  newsapi: [{ key: "api_key", label: "NewsAPI key", placeholder: "…", secret: true, target: "api_key" }],
-  mailgun: [
-    { key: "api_key", label: "Mailgun API key", placeholder: "key-…", secret: true, target: "api_key" },
-    { key: "domain", label: "Sending domain", placeholder: "mg.example.com", target: "config.domain" },
-  ],
-  sendgrid: [{ key: "api_key", label: "SendGrid API key", placeholder: "SG.…", secret: true, target: "api_key" }],
-  hubspot: [{ key: "api_key", label: "HubSpot private app token", placeholder: "pat-…", secret: true, target: "api_key" }],
-  salesforce: [
-    { key: "client_id", label: "Client ID", placeholder: "…", target: "api_key" },
-    { key: "client_secret", label: "Client secret", placeholder: "…", secret: true, target: "config.client_secret" },
-    { key: "username", label: "Username", placeholder: "you@company.com", target: "config.username" },
-    { key: "password", label: "Password", placeholder: "…", secret: true, target: "config.password" },
-  ],
-  ga4: [
-    {
-      key: "service_account_json",
-      label: "Service account JSON",
-      placeholder: '{ "type": "service_account", … }',
-      multiline: true,
-      target: "config.service_account_json",
-    },
-    { key: "property_id", label: "GA4 property ID", placeholder: "123456789", target: "config.property_id" },
-  ],
-  sec_edgar: [],
-  deepseek: [],
-};
 
 const STEPS = [
   { id: 1, title: "Workspace", description: "Tell us about your company" },
@@ -89,7 +51,7 @@ export default function Onboarding() {
     if (!connectTarget) return;
     setConnecting(true);
     try {
-      const fields = SERVICE_FIELDS[connectTarget.service] || [];
+      const fields = SERVICE_FIELDS(connectTarget.service) || [];
       const payload: { service: string; api_key?: string; config?: Record<string, string> } = {
         service: connectTarget.service,
       };
@@ -192,8 +154,15 @@ export default function Onboarding() {
                       </span>
                     </div>
                     <p className="service-desc">{service.description}</p>
+                    <p className="service-note">
+                      {service.keyless ? "No API key needed · Public API" : service.free_tier_note}
+                    </p>
                     <div className="service-actions">
-                      {service.connected ? (
+                      {service.keyless ? (
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleTest(service)}>
+                          Verify connection
+                        </button>
+                      ) : service.connected ? (
                         <>
                           <button className="btn btn-secondary btn-sm" onClick={() => handleTest(service)}>
                             Test
@@ -265,7 +234,7 @@ export default function Onboarding() {
       >
         {connectTarget && (
           <div className="connect-form">
-            {(SERVICE_FIELDS[connectTarget.service] || []).map((field) => (
+            {(SERVICE_FIELDS(connectTarget.service) || []).map((field) => (
               <div className="field" key={field.key}>
                 <label className="label" htmlFor={field.key}>
                   {field.label}
@@ -293,8 +262,12 @@ export default function Onboarding() {
                 )}
               </div>
             ))}
-            {(SERVICE_FIELDS[connectTarget.service] || []).length === 0 && (
-              <p className="muted">This service is configured via environment variables. Use Test to verify it.</p>
+            {(SERVICE_FIELDS(connectTarget.service) || []).length === 0 && (
+              <p className="muted">
+                {connectTarget.keyless
+                  ? "This service is free and needs no API key. Use Verify connection to check it."
+                  : "This service is configured via your workspace environment. Add an API key to manage it here."}
+              </p>
             )}
           </div>
         )}
