@@ -40,3 +40,31 @@ class HunterClient:
             if item.get("value"):
                 emails.append(item["value"])
         return emails
+
+    async def search_contacts(self, domain: str, titles: list[str] | None = None, *, limit: int = 25) -> list[dict]:
+        """Hunter Domain Search - find people (name, title, email) at a company domain.
+
+        This is the free-plan alternative to Apollo's `mixed_people/search`.
+        """
+        result = await self.domain_search(domain)
+        people = []
+        for item in result.get("emails", [])[:limit]:
+            title = item.get("position") or item.get("seniority") or ""
+            if titles and title:
+                low = title.lower()
+                if not any(kw in low for kw in [t.lower() for t in titles]):
+                    continue
+            people.append(
+                {
+                    "id": item.get("id"),
+                    "name": f"{item.get('first_name') or ''} {item.get('last_name') or ''}".strip() or None,
+                    "first_name": item.get("first_name"),
+                    "last_name": item.get("last_name"),
+                    "title": title or None,
+                    "email": item.get("value"),
+                    "phone": None,
+                    "company_name": result.get("organization") or None,
+                    "linkedin_url": item.get("linkedin"),
+                }
+            )
+        return people

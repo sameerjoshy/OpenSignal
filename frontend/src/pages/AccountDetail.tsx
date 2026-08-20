@@ -81,7 +81,8 @@ export default function AccountDetail() {
     if (!account?.company_name) return;
     setContactsLoading(true);
     try {
-      setContacts(await api.get<ApolloContact[]>(`/api/v1/contacts/search?company=${encodeURIComponent(account.company_name)}&limit=5`));
+      const domainParam = account.domain ? `&domain=${encodeURIComponent(account.domain)}` : "";
+      setContacts(await api.get<ApolloContact[]>(`/api/v1/contacts/search?company=${encodeURIComponent(account.company_name)}${domainParam}&limit=5`));
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -199,7 +200,7 @@ export default function AccountDetail() {
             <button className="btn btn-secondary btn-sm" onClick={() => void findContacts()} disabled={contactsLoading}>
               {contactsLoading ? "Searching…" : "Find decision-makers"}
             </button>
-            {contacts !== null && <span className="muted">Apollo People Search</span>}
+            {contacts !== null && <span className="muted">People Search</span>}
           </div>
           {contacts !== null && contacts.length > 0 && (
             <div className="intent-legend" style={{ marginBottom: "0.75rem" }}>
@@ -213,7 +214,7 @@ export default function AccountDetail() {
             </div>
           )}
           {contacts !== null && contacts.length === 0 && (
-            <p className="muted" style={{ marginTop: "0.5rem" }}>No decision-makers found. Upgrade Apollo plan or check the company name.</p>
+            <p className="muted" style={{ marginTop: "0.5rem" }}>No decision-makers found. Connect Hunter (free) for a fallback or check the company name.</p>
           )}
 
           {intel && intel.campaigns.length > 0 && (

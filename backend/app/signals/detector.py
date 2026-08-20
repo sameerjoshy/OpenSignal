@@ -11,7 +11,7 @@ from app.services.base import ServiceError
 from app.services.credentials import require_key, resolve_credentials
 from app.services.ga4 import Ga4Client
 from app.services.newsapi import NewsApiClient
-from app.services.sec_edgar import SecEdgarClient
+from app.services.people import people_signals
 from app.services.base import ServiceNotConfigured
 from app.signals.types import SignalDraft
 
@@ -26,7 +26,12 @@ async def _detect_source(db: AsyncSession, user_id, account: Account, source: st
         if not creds.api_key:
             return []
         client = ApolloClient(require_key(creds, "Apollo"))
-        return await client.detect_signals(account.company_name, account.domain)
+        try:
+            return await client.detect_signals(account.company_name, account.domain)
+        except ServiceError:
+            # Apollo people search requires a paid plan; fall back to Hunter (free tier).
+            logger.warning("Apollo detection failed for %s; trying Hunter fallback", account.company_name)
+            return await people_signals(db, user_id, account.company_name, account.domain)
 
     if source == "sec_edgar":
         return await SecEdgarClient().detect_signals(account.company_name)

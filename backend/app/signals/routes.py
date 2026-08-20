@@ -176,25 +176,22 @@ async def create_manual_signal(
     return schemas.SignalOut.model_validate(signal)
 
 
-# ---------------------------------------------------------------- Contacts (Apollo)
+# ---------------------------------------------------------------- Contacts (Apollo/Hunter)
 @router.get("/contacts/search")
 async def search_contacts(
     company: str = Query(..., min_length=2),
+    domain: str | None = Query(None, description="Company domain (enables Hunter fallback on free Apollo plans)"),
     titles: str | None = Query(None, description="Comma-separated job titles to target"),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> list[dict]:
-    """Apollo People Search - find decision-makers at a company."""
-    from app.services.apollo import ApolloClient
+    """People search - Apollo first, Hunter.io as the free-plan fallback."""
+    from app.services.people import search_people
 
-    creds = await resolve_credentials(db, user.id, "apollo")
-    client = ApolloClient(require_key(creds, "apollo"))
-    try:
-        title_list = [t.strip() for t in titles.split(",") if t.strip()] if titles else None
-        return await client.search_contacts(company, title_list, limit=limit)
-    except ServiceError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    title_list = [t.strip() for t in titles.split(",") if t.strip()] if titles else None
+    people, _provider = await search_people(db, user.id, company, domain, title_list, limit=limit)
+    return people
 
 
 @router.post("/contacts/enrich")

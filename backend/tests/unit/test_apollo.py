@@ -10,6 +10,8 @@ import pytest
 
 from app.services.apollo import ApolloClient, _format_error
 from app.services.base import ServiceError
+from app.services.hunter import HunterClient
+from app.services.people import search_people
 from tests.conftest import auth_headers
 
 PLAN_BLOCKED_BODY = (
@@ -86,7 +88,7 @@ async def test_apollo_connection_test_fails_when_enrichment_also_fails(client, u
 
 
 async def test_contacts_search_returns_clean_error(client, user_token, monkeypatch):
-    """The contacts search endpoint surfaces the clean message, not the raw JSON body."""
+    """With the Hunter fallback, a plan-blocked Apollo no longer 403s - it returns gracefully."""
     monkeypatch.setattr(ApolloClient, "search_contacts", _raise_blocked)
 
     await client.post(
@@ -95,6 +97,44 @@ async def test_contacts_search_returns_clean_error(client, user_token, monkeypat
         headers=auth_headers(user_token),
     )
     resp = await client.get("/api/v1/contacts/search?company=Stripe", headers=auth_headers(user_token))
-    assert resp.status_code == 403
-    assert "Apollo people search isn't included in your Apollo plan" in resp.json()["detail"]
-    assert "mixed_people" not in resp.json()["detail"]
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_people_search_falls_back_to_hunter(db, user_token, monkeypatch):
+    """When Apollo people search is plan-blocked, Hunter is used as the free fallback."""
+    import uuid
+
+    from app.auth.jwt import decode_access_token
+    from app.database import crud
+    from app.security.encryption import encrypt_value
+
+    user_id = uuid.UUID(decode_access_token(user_token)["sub"])
+
+    async def _apollo_search(*args, **kwargs):
+        raise ServiceError(_format_error(403, PLAN_BLOCKED_BODY), status_code=403)
+
+    async def _hunter_search(*args, **kwargs):
+        return [
+            {
+                "id": "h1",
+                "name": "Jordan Lee",
+                "first_name": "Jordan",
+                "last_name": "Lee",
+                "title": "VP Growth",
+                "email": "jordan@acme.io",
+                "phone": None,
+                "company_name": "acme.io",
+                "linkedin_url": "https://linkedin.com/in/jordanlee",
+            }
+        ]
+
+    monkeypatch.setattr(ApolloClient, "search_contacts", _apollo_search)
+    monkeypatch.setattr(HunterClient, "search_contacts", _hunter_search)
+
+    await crud.upsert_credential(db, user_id, "apollo", encrypt_value("apollo-key"), None)
+    await crud.upsert_credential(db, user_id, "hunter", encrypt_value("hunter-key"), None)
+
+    people, provider = await search_people(db, user_id, "Acme", domain="acme.io", limit=5)
+    assert provider == "hunter"
+    assert people and people[0]["email"] == "jordan@acme.io"
