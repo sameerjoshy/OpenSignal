@@ -23,6 +23,11 @@ coverage/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
 htmlcov/
 *.db
 

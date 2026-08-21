@@ -202,14 +202,15 @@ export default function Landing() {
           <div className="landing-container landing-hero-inner">
             <div className="landing-eyebrow">
               <span className="landing-eyebrow-dot" aria-hidden="true" />
-              The signal-based demand engine
+              Stop guessing. Start closing.
             </div>
             <h1 className="landing-hero-title">
-              Signal-based outreach that <span className="landing-gradient">actually works</span>
+              Your next <span className="landing-gradient">5 qualified meetings</span> are already signaling intent
             </h1>
             <p className="landing-hero-sub">
-              Most outreach tools are complicated. Signal360 finds the accounts that are already looking, surfaces the
-              buying signals competitors miss, and reaches them at the right moment — no data team required.
+              Most of your outreach lands on people who aren't buying. Signal360 watches your target accounts for the
+              exact moments they start shopping — a funding round, a new VP, a hiring spree — and hands you the
+              accounts that are <strong>ready to talk now</strong>. Not 500 cold emails. Just the ones that work.
             </p>
             <div className="landing-hero-cta">
               <Link className="btn landing-btn-primary landing-btn-lg" to={ctaHref}>
@@ -223,25 +224,25 @@ export default function Landing() {
               </a>
             </div>
             <p className="landing-hero-note">
-              Free to start · No credit card · Set up in minutes
+              Free to start · No credit card · First hot leads in days, not months
             </p>
 
-            {/* Value props: adoption-first, one sentence each */}
+            {/* Value props: adoption-first, outcome-driven */}
             <div className="landing-value-row">
               <div className="landing-value-item">
-                <div className="landing-value-icon" aria-hidden="true">⚡</div>
-                <h3 className="landing-value-title">Simple</h3>
-                <p className="landing-value-desc">Create a campaign in minutes. No data engineering, no training, no 30-step setup.</p>
+                <div className="landing-value-icon" aria-hidden="true">⏱️</div>
+                <h3 className="landing-value-title">Skip the busywork</h3>
+                <p className="landing-value-desc">Hours of LinkedIn stalking and list-building, done for you. Signal360 finds the accounts that are already buying.</p>
               </div>
               <div className="landing-value-item">
                 <div className="landing-value-icon" aria-hidden="true">🎯</div>
-                <h3 className="landing-value-title">Aligned</h3>
-                <p className="landing-value-desc">Every email is written from a live buying signal, so outreach lands when it matters.</p>
+                <h3 className="landing-value-title">Reach them first</h3>
+                <p className="landing-value-desc">A new VP hires, a company raises — that's the exact moment they're evaluating. You get there before competitors even notice.</p>
               </div>
               <div className="landing-value-item">
                 <div className="landing-value-icon" aria-hidden="true">📈</div>
-                <h3 className="landing-value-title">Wins</h3>
-                <p className="landing-value-desc">Teams see 2-3x better reply rates selling into intent instead of cold lists.</p>
+                <h3 className="landing-value-title">Book more meetings</h3>
+                <p className="landing-value-desc">Teams see 2-3x better reply rates selling into live intent instead of cold lists. Fewer emails, better results.</p>
               </div>
             </div>
 
@@ -343,8 +344,8 @@ export default function Landing() {
           <div className="landing-container">
             <div className="landing-head">
               <div className="landing-eyebrow">The outcomes</div>
-              <h2 className="landing-title">Built to move the number that matters</h2>
-              <p className="landing-sub">Every feature traces back to one goal: more replies from the accounts that are actually ready to buy.</p>
+              <h2 className="landing-title">What happens after you connect?</h2>
+              <p className="landing-sub">Not more software to learn. More meetings, less busywork, and pipeline you can see growing from day one.</p>
             </div>
             <div className="landing-grid landing-grid-4">
               {OUTCOMES.map((o) => (
@@ -492,8 +493,8 @@ export default function Landing() {
         <section className="landing-section landing-cta-band">
           <div className="landing-container">
             <div className="landing-cta-box">
-              <h2 className="landing-cta-title">Ready to sell into intent, not spam into the dark?</h2>
-              <p className="landing-cta-sub">Join teams turning live buying signals into booked meetings. Free to start.</p>
+              <h2 className="landing-cta-title">Imagine opening your inbox to meetings from accounts you didn't have to hunt for</h2>
+              <p className="landing-cta-sub">That's what happens when you sell into live intent. See your first hot accounts in days — free.</p>
               <Link className="btn landing-btn-primary landing-btn-lg" to={ctaHref}>
                 {ctaLabel}
                 <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true">
